@@ -1,0 +1,7 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Full Stack - API + Frontend" type="CompoundRunConfigurationType" factoryName="Compound Run Configuration">
+    <toRun name="RescueRanger.API" type="LaunchSettings" />
+    <toRun name="Quasar Frontend" type="js.build_tools.npm" />
+    <method v="2" />
+  </configuration>
+</component>

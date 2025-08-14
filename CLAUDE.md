@@ -191,3 +191,4 @@ docker-compose --profile full-stack up  # Start everything
 - [Quasar Framework](https://quasar.dev/)
 - [Vue.js 3 Guide](https://vuejs.org/guide/)
 - [Pinia State Management](https://pinia.vuejs.org/)
+- Use `quasar dev` when starting the frontend dev server

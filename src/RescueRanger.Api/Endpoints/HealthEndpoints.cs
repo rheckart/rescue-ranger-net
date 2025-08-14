@@ -1,17 +1,7 @@
-using FastEndpoints;
-using Microsoft.Extensions.Diagnostics.HealthChecks;
-
 namespace RescueRanger.Api.Endpoints;
 
-public class BasicHealthEndpoint : EndpointWithoutRequest<HealthResponse>
+public class BasicHealthEndpoint(HealthCheckService healthCheckService) : EndpointWithoutRequest<HealthResponse>
 {
-    private readonly HealthCheckService _healthCheckService;
-
-    public BasicHealthEndpoint(HealthCheckService healthCheckService)
-    {
-        _healthCheckService = healthCheckService;
-    }
-
     public override void Configure()
     {
         Get("/health");
@@ -27,7 +17,7 @@ public class BasicHealthEndpoint : EndpointWithoutRequest<HealthResponse>
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var health = await _healthCheckService.CheckHealthAsync(ct);
+        var health = await healthCheckService.CheckHealthAsync(ct);
         
         var response = new HealthResponse
         {
@@ -37,24 +27,18 @@ public class BasicHealthEndpoint : EndpointWithoutRequest<HealthResponse>
 
         if (health.Status == HealthStatus.Healthy)
         {
-            await SendOkAsync(response, ct);
+            await Send.OkAsync(response, ct);
         }
         else
         {
-            await SendAsync(response, statusCode: 503, ct);
+            await Send.ResultAsync(Results.StatusCode(503));
         }
     }
 }
 
-public class DetailedHealthEndpoint : EndpointWithoutRequest<DetailedHealthResponse>
+public class DetailedHealthEndpoint(HealthCheckService healthCheckService)
+    : EndpointWithoutRequest<DetailedHealthResponse>
 {
-    private readonly HealthCheckService _healthCheckService;
-
-    public DetailedHealthEndpoint(HealthCheckService healthCheckService)
-    {
-        _healthCheckService = healthCheckService;
-    }
-
     public override void Configure()
     {
         Get("/health/ready");
@@ -70,7 +54,7 @@ public class DetailedHealthEndpoint : EndpointWithoutRequest<DetailedHealthRespo
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var health = await _healthCheckService.CheckHealthAsync(ct);
+        var health = await healthCheckService.CheckHealthAsync(ct);
         var process = System.Diagnostics.Process.GetCurrentProcess();
         
         var response = new DetailedHealthResponse
@@ -97,11 +81,11 @@ public class DetailedHealthEndpoint : EndpointWithoutRequest<DetailedHealthRespo
 
         if (health.Status == HealthStatus.Healthy)
         {
-            await SendOkAsync(response, ct);
+            await Send.OkAsync(response, ct);
         }
         else
         {
-            await SendAsync(response, statusCode: 503, ct);
+            await Send.ResultAsync(Results.StatusCode(503));
         }
     }
 }

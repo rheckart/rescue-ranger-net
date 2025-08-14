@@ -70,16 +70,13 @@ public class Program
                 configuration.GetConnectionString("DefaultConnection") ?? "",
                 name: "database",
                 tags: new[] { "db", "postgresql" });
-        
-        // Add HealthCheckService for custom endpoints
-        services.AddSingleton<Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckService>();
 
         // Add CORS for development
         services.AddCors(options =>
         {
             options.AddPolicy("DevelopmentPolicy", policy =>
             {
-                policy.WithOrigins("http://localhost:9000")
+                policy.WithOrigins("http://localhost:9001")
                       .AllowAnyMethod()
                       .AllowAnyHeader()
                       .AllowCredentials();
