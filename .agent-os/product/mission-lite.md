@@ -1,0 +1,5 @@
+# Product Mission (Lite)
+
+Rescue Ranger is a comprehensive mobile-first application that helps horse rescue organizations manage all aspects of their operations—from individual horse care to volunteer coordination—by providing real-time tracking, automated reminders, and streamlined communication across all rescue personnel.
+
+Rescue Ranger serves horse rescue organizations managing 10-100 horses with limited staff and volunteer resources, providing a centralized platform that reduces coordination time by 30% and prevents critical care errors. Unlike generic farm management apps, Rescue Ranger is purpose-built for equine rescue operations with horse-specific care protocols, offline-first architecture for barn environments, and role-based interfaces that enable 80% faster volunteer onboarding while ensuring comprehensive oversight for rescue managers.

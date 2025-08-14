@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: rescue-ranger-postgres
+    environment:
+      POSTGRES_DB: rescueranger_dev
+      POSTGRES_USER: rescueranger
+      POSTGRES_PASSWORD: development
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rescue_ranger -d rescue_ranger"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: rescue-ranger-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: src/RescueRanger.Api/Dockerfile
+    container_name: rescue-ranger-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5000
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=rescueranger_dev;Username=rescueranger;Password=development
+      - Redis__ConnectionString=redis:6379
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./appsettings.Development.json:/app/appsettings.Development.json
+    profiles:
+      - full-stack
+
+  frontend:
+    build:
+      context: ./rescue-ranger-client
+      dockerfile: Dockerfile.dev
+    container_name: rescue-ranger-frontend
+    environment:
+      - VITE_API_URL=http://localhost:5000
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./rescue-ranger-client/src:/app/src
+      - ./rescue-ranger-client/public:/app/public
+    depends_on:
+      - api
+    profiles:
+      - full-stack
+
+volumes:
+  postgres_data:
+  redis_data:
