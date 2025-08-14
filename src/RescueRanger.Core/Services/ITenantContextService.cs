@@ -1,3 +1,6 @@
+using RescueRanger.Core.Models;
+using RescueRanger.Core.ValueObjects;
+
 namespace RescueRanger.Core.Services;
 
 /// <summary>
@@ -21,9 +24,19 @@ public interface ITenantContextService
     string TenantName { get; }
     
     /// <summary>
+    /// Gets the current tenant info
+    /// </summary>
+    TenantInfo? CurrentTenant { get; }
+    
+    /// <summary>
     /// Indicates if a valid tenant is set
     /// </summary>
     bool IsValid { get; }
+    
+    /// <summary>
+    /// Sets the current tenant context
+    /// </summary>
+    void SetTenant(TenantInfo tenantInfo);
     
     /// <summary>
     /// Sets the current tenant context
@@ -34,4 +47,19 @@ public interface ITenantContextService
     /// Clears the current tenant context
     /// </summary>
     void Clear();
+    
+    /// <summary>
+    /// Gets the tenant configuration asynchronously
+    /// </summary>
+    Task<TenantConfiguration?> GetTenantConfigurationAsync();
+    
+    /// <summary>
+    /// Validates if the current tenant can be accessed
+    /// </summary>
+    Task<bool> ValidateTenantAccessAsync();
+    
+    /// <summary>
+    /// Checks if the current tenant is the system tenant
+    /// </summary>
+    bool IsSystemTenant { get; }
 }

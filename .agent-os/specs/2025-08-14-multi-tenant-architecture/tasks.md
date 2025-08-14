@@ -33,28 +33,28 @@
 ### Task 1.2: Tenant Context Service
 
 #### 1.2.1 Create Tenant Context Infrastructure
-- [ ] Create `ITenantContextService` interface in `src/RescueRanger.Core/Services/`
+- [x] Create `ITenantContextService` interface in `src/RescueRanger.Core/Services/`
   ```csharp
   // Methods: CurrentTenant, TenantId, TenantSubdomain, IsValidTenant
   // Async methods: GetTenantConfigurationAsync, ValidateTenantAccessAsync
   ```
-- [ ] Create `TenantContextService` implementation in `src/RescueRanger.Infrastructure/Services/`
-- [ ] Create `TenantInfo` model in `src/RescueRanger.Core/Models/`
-- [ ] Implement scoped service registration in DI container
+- [x] Create `TenantContextService` implementation in `src/RescueRanger.Infrastructure/Services/`
+- [x] Create `TenantInfo` model in `src/RescueRanger.Core/Models/`
+- [x] Implement scoped service registration in DI container
 
 #### 1.2.2 Implement Tenant Resolution Logic
-- [ ] Create `ITenantResolver` interface for different resolution strategies
-- [ ] Implement `SubdomainTenantResolver` class
-- [ ] Add Redis caching layer for tenant lookup performance
-- [ ] Implement fallback mechanisms for tenant resolution failures
-- [ ] Add comprehensive logging for tenant resolution events
+- [x] Create `ITenantResolver` interface for different resolution strategies
+- [x] Implement `SubdomainTenantResolver` class
+- [x] Add Redis caching layer for tenant lookup performance
+- [x] Implement fallback mechanisms for tenant resolution failures
+- [x] Add comprehensive logging for tenant resolution events
 
 #### 1.2.3 Create Tenant Repository
-- [ ] Create `ITenantRepository` interface in `src/RescueRanger.Core/Repositories/`
-- [ ] Implement `TenantRepository` in `src/RescueRanger.Infrastructure/Repositories/`
-- [ ] Add methods: GetBySubdomainAsync, GetByIdAsync, CreateAsync, UpdateAsync
-- [ ] Implement caching strategy for tenant data
-- [ ] Add tenant status validation methods
+- [x] Create `ITenantRepository` interface in `src/RescueRanger.Core/Repositories/`
+- [x] Implement `TenantRepository` in `src/RescueRanger.Infrastructure/Repositories/`
+- [x] Add methods: GetBySubdomainAsync, GetByIdAsync, CreateAsync, UpdateAsync
+- [x] Implement caching strategy for tenant data
+- [x] Add tenant status validation methods
 
 ### Task 1.3: Tenant Resolution Middleware
 
