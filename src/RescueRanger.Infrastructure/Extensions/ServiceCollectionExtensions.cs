@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using RescueRanger.Core.Repositories;
@@ -46,7 +47,7 @@ public static class ServiceCollectionExtensions
     {
         // Add in-memory caching for development
         services.AddMemoryCache();
-        services.AddSingleton<Microsoft.Extensions.Caching.Distributed.IDistributedCache, Microsoft.Extensions.Caching.Memory.MemoryDistributedCache>();
+        services.AddDistributedMemoryCache();
         
         // Register tenant services
         services.AddScoped<ITenantContextService, TenantContextService>();

@@ -1,7 +1,13 @@
 using FastEndpoints;
 using FastEndpoints.Swagger;
 using Microsoft.EntityFrameworkCore;
+using RescueRanger.Api.Middleware;
+using RescueRanger.Core.Models;
+using RescueRanger.Core.Repositories;
+using RescueRanger.Core.Services;
 using RescueRanger.Infrastructure.Data;
+using RescueRanger.Infrastructure.Repositories;
+using RescueRanger.Infrastructure.Services;
 using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Json;
@@ -97,6 +103,15 @@ public class Program
 
         // Add Authorization (placeholder for future implementation)
         services.AddAuthorization();
+        
+        // Configure Multi-Tenant Options
+        services.Configure<MultiTenantOptions>(configuration.GetSection("MultiTenant"));
+        
+        // Register tenant services
+        services.AddScoped<ITenantContextService, TenantContextService>();
+        services.AddScoped<ITenantRepository, TenantRepository>();
+        services.AddScoped<ITenantResolver, SubdomainTenantResolver>();
+        services.AddScoped<ISubdomainTenantResolver, SubdomainTenantResolver>();
     }
 
     private static void ConfigureApp(WebApplication app)
@@ -120,8 +135,19 @@ public class Program
                 var userAgent = httpContext.Request.Headers["User-Agent"].FirstOrDefault();
                 if (userAgent != null)
                     diagnosticContext.Set("UserAgent", userAgent);
+                
+                // Add tenant context to logs
+                var tenantService = httpContext.RequestServices.GetService<ITenantContextService>();
+                if (tenantService != null && tenantService.IsValid)
+                {
+                    diagnosticContext.Set("TenantId", tenantService.TenantId);
+                    diagnosticContext.Set("TenantName", tenantService.TenantName);
+                }
             };
         });
+        
+        // Add Tenant Resolution Middleware (before authentication/authorization)
+        app.UseTenantResolution();
 
         if (app.Environment.IsDevelopment())
         {
