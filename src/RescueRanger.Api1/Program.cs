@@ -1,4 +1,3 @@
-using FastEndpoints;
 using FastEndpoints.Swagger;
 using Microsoft.EntityFrameworkCore;
 using RescueRanger.Api1.Middleware;
@@ -52,7 +51,7 @@ try
         healthChecksBuilder.AddNpgSql(
             connectionString,
             name: "database",
-            tags: new[] { "db", "postgresql" });
+            tags: ["db", "postgresql"]);
     }
 
     // Add CORS for development
@@ -109,17 +108,15 @@ try
         options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
         {
             diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value ?? "unknown");
-            var userAgent = httpContext.Request.Headers["User-Agent"].FirstOrDefault();
+            var userAgent = httpContext.Request.Headers.UserAgent.FirstOrDefault();
             if (userAgent != null)
                 diagnosticContext.Set("UserAgent", userAgent);
             
             // Add tenant context to logs
             var tenantService = httpContext.RequestServices.GetService<ITenantContextService>();
-            if (tenantService != null && tenantService.IsValid)
-            {
-                diagnosticContext.Set("TenantId", tenantService.TenantId);
-                diagnosticContext.Set("TenantName", tenantService.TenantName);
-            }
+            if (tenantService is not { IsValid: true }) return;
+            diagnosticContext.Set("TenantId", tenantService.TenantId);
+            diagnosticContext.Set("TenantName", tenantService.TenantName);
         };
     });
     

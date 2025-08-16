@@ -53,6 +53,23 @@ bld.Services.AddDbContext<ApplicationDbContext>(options =>
                          .MigrationsAssembly("RescueRanger.Api")
                          .EnableRetryOnFailure()));
 
+// Add Redis distributed caching
+var redisConnectionString = bld.Configuration.GetConnectionString("Redis");
+
+if (!string.IsNullOrWhiteSpace(redisConnectionString))
+{
+    bld.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.Configuration = redisConnectionString;
+        options.InstanceName = "RescueRanger";
+    });
+}
+else
+{
+    // Fallback for dev/local so IDistributedCache is always available
+    bld.Services.AddDistributedMemoryCache();
+}
+
 // Add Health Checks
 var connectionString = bld.Configuration.GetConnectionString("DefaultConnection");
 var healthChecksBuilder = bld.Services.AddHealthChecks();
@@ -65,6 +82,12 @@ if (!string.IsNullOrEmpty(connectionString))
         name: "database",
         tags: ["db", "postgresql"]);
 }
+
+// Add Redis health check
+healthChecksBuilder.AddRedis(
+    redisConnectionString,
+    name: "redis",
+    tags: ["cache", "redis"]);
 
 // Add CORS for development
 bld.Services.AddCors(options =>
