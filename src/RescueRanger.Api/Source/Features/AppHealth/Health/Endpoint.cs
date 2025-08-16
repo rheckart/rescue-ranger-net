@@ -1,4 +1,6 @@
-namespace RescueRanger.Api1.Endpoints;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+
+namespace RescueRanger.Api.Features.AppHealth.Health;
 
 public class BasicHealthEndpoint(HealthCheckService healthCheckService) : EndpointWithoutRequest<HealthResponse>
 {
@@ -72,7 +74,7 @@ public class DetailedHealthEndpoint(HealthCheckService healthCheckService)
                     Error = kvp.Value.Exception?.Message
                 }
             ),
-            System = new SystemInfo
+            System = new()
             {
                 Uptime = (DateTime.UtcNow - process.StartTime.ToUniversalTime()).ToString(@"dd\.hh\:mm\:ss"),
                 MemoryUsage = $"{GC.GetTotalMemory(false) / 1024 / 1024} MB"
@@ -88,20 +90,6 @@ public class DetailedHealthEndpoint(HealthCheckService healthCheckService)
             await Send.ResultAsync(Results.StatusCode(503));
         }
     }
-}
-
-public class HealthResponse
-{
-    public string Status { get; set; } = string.Empty;
-    public string? Timestamp { get; set; }
-}
-
-public class DetailedHealthResponse : HealthResponse
-{
-    public string? Version { get; set; }
-    public string? Environment { get; set; }
-    public Dictionary<string, ServiceStatus>? Services { get; set; }
-    public SystemInfo? System { get; set; }
 }
 
 public class ServiceStatus

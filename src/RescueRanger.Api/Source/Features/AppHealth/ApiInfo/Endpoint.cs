@@ -1,17 +1,16 @@
-using FastEndpoints;
 using System.Reflection;
 
-namespace RescueRanger.Api1.Endpoints;
+namespace RescueRanger.Api.Features.AppHealth.ApiInfo;
 
-public class ApiInfoEndpoint : EndpointWithoutRequest<ApiInfoResponse>
+public class Endpoint : EndpointWithoutRequest<Response>
 {
     public override void Configure()
     {
         Get("/api/info");
         AllowAnonymous();
         Description(b => b
-            .Produces<ApiInfoResponse>(200)
-            .WithTags("System"));
+                         .Produces<Response>(200)
+                         .WithTags("System"));
         Summary(s =>
         {
             s.Summary = "Get API information";
@@ -25,7 +24,7 @@ public class ApiInfoEndpoint : EndpointWithoutRequest<ApiInfoResponse>
         var version = assembly.GetName().Version?.ToString() ?? "1.0.0";
         var framework = assembly.GetCustomAttribute<System.Runtime.Versioning.TargetFrameworkAttribute>()?.FrameworkName ?? "Unknown";
         
-        await Send.OkAsync(new ApiInfoResponse(
+        await Send.OkAsync(new(
             Name: "Rescue Ranger API",
             Version: version,
             Framework: framework,
@@ -34,11 +33,3 @@ public class ApiInfoEndpoint : EndpointWithoutRequest<ApiInfoResponse>
         ), ct);
     }
 }
-
-public record ApiInfoResponse(
-    string Name,
-    string Version,
-    string Framework,
-    string Environment,
-    DateTime Timestamp
-);
