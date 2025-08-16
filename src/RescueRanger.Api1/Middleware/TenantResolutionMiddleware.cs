@@ -3,35 +3,27 @@ using RescueRanger.Core.Models;
 using RescueRanger.Core.Repositories;
 using RescueRanger.Core.Services;
 using System.Text.RegularExpressions;
+using Ardalis.Result;
 
-namespace RescueRanger.Api.Middleware;
+namespace RescueRanger.Api1.Middleware;
 
 /// <summary>
 /// Middleware for resolving tenant context from incoming requests
 /// </summary>
-public class TenantResolutionMiddleware
+public class TenantResolutionMiddleware(
+    RequestDelegate next,
+    ILogger<TenantResolutionMiddleware> logger,
+    IOptions<MultiTenantOptions> options)
 {
-    private readonly RequestDelegate _next;
-    private readonly ILogger<TenantResolutionMiddleware> _logger;
-    private readonly MultiTenantOptions _options;
+    private readonly MultiTenantOptions _options = options.Value;
     private static readonly Regex SubdomainRegex = new(@"^([a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
-    public TenantResolutionMiddleware(
-        RequestDelegate next,
-        ILogger<TenantResolutionMiddleware> logger,
-        IOptions<MultiTenantOptions> options)
-    {
-        _next = next;
-        _logger = logger;
-        _options = options.Value;
-    }
 
     public async Task InvokeAsync(HttpContext context)
     {
         // Skip tenant resolution for health endpoints
         if (context.Request.Path.StartsWithSegments("/health", StringComparison.OrdinalIgnoreCase))
         {
-            await _next(context);
+            await next(context);
             return;
         }
 
@@ -46,13 +38,14 @@ public class TenantResolutionMiddleware
             
             if (!string.IsNullOrWhiteSpace(tenantIdentifier))
             {
-                _logger.LogDebug("Tenant identifier resolved: {TenantIdentifier}", tenantIdentifier);
+                logger.LogDebug("Tenant identifier resolved: {TenantIdentifier}", tenantIdentifier);
                 
                 // Look up tenant in database
-                var tenant = await tenantRepository.GetBySubdomainAsync(tenantIdentifier);
+                var tenantResult = await tenantRepository.GetBySubdomainAsync(tenantIdentifier);
                 
-                if (tenant != null)
+                if (tenantResult.IsSuccess)
                 {
+                    var tenant = tenantResult.Value;
                     // Convert to TenantInfo
                     var tenantInfo = new TenantInfo
                     {
@@ -67,13 +60,13 @@ public class TenantResolutionMiddleware
                     // Set tenant context
                     tenantContextService.SetTenant(tenantInfo);
                     
-                    _logger.LogInformation("Tenant context set for {TenantName} ({TenantId})", 
+                    logger.LogInformation("Tenant context set for {TenantName} ({TenantId})", 
                         tenant.Name, tenant.Id);
                     
                     // Validate tenant access
                     if (!await tenantContextService.ValidateTenantAccessAsync())
                     {
-                        _logger.LogWarning("Tenant access denied for {TenantName} ({TenantId})", 
+                        logger.LogWarning("Tenant access denied for {TenantName} ({TenantId})", 
                             tenant.Name, tenant.Id);
                         
                         context.Response.StatusCode = StatusCodes.Status403Forbidden;
@@ -83,7 +76,7 @@ public class TenantResolutionMiddleware
                 }
                 else
                 {
-                    _logger.LogWarning("Tenant not found for identifier: {TenantIdentifier}", tenantIdentifier);
+                    logger.LogWarning("Tenant not found for identifier: {TenantIdentifier}", tenantIdentifier);
                     
                     // In production, you might want to return 404 or redirect to a default page
                     context.Response.StatusCode = StatusCodes.Status404NotFound;
@@ -94,7 +87,7 @@ public class TenantResolutionMiddleware
             else if (!IsDevelopmentMode(context))
             {
                 // In production, tenant resolution is required
-                _logger.LogWarning("No tenant identifier found in request");
+                logger.LogWarning("No tenant identifier found in request");
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
                 await context.Response.WriteAsync("Tenant identifier required");
                 return;
@@ -104,9 +97,10 @@ public class TenantResolutionMiddleware
                 // In development mode, use default tenant if configured
                 if (!string.IsNullOrWhiteSpace(_options.DevelopmentTenant))
                 {
-                    var devTenant = await tenantRepository.GetBySubdomainAsync(_options.DevelopmentTenant);
-                    if (devTenant != null)
+                    var devTenantResult = await tenantRepository.GetBySubdomainAsync(_options.DevelopmentTenant);
+                    if (devTenantResult.IsSuccess)
                     {
+                        var devTenant = devTenantResult.Value;
                         var tenantInfo = new TenantInfo
                         {
                             Id = devTenant.Id,
@@ -118,17 +112,17 @@ public class TenantResolutionMiddleware
                         };
                         
                         tenantContextService.SetTenant(tenantInfo);
-                        _logger.LogDebug("Development tenant set: {TenantName}", devTenant.Name);
+                        logger.LogDebug("Development tenant set: {TenantName}", devTenant.Name);
                     }
                 }
             }
 
             // Continue processing
-            await _next(context);
+            await next(context);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error resolving tenant context");
+            logger.LogError(ex, "Error resolving tenant context");
             
             // Clear any partial tenant context
             tenantContextService.Clear();
@@ -147,16 +141,15 @@ public class TenantResolutionMiddleware
     /// <summary>
     /// Resolves tenant identifier from various sources
     /// </summary>
-    private Task<string?> ResolveTenantIdentifierAsync(HttpContext context)
+    private Task<Result<string>> ResolveTenantIdentifierAsync(HttpContext context)
     {
-        string? tenantIdentifier = null;
-        
-        // Priority 1: Try subdomain resolution
-        tenantIdentifier = ExtractSubdomainFromHost(context.Request.Host.Host);
+        var tenantIdentifier =
+            // Priority 1: Try subdomain resolution
+            ExtractSubdomainFromHost(context.Request.Host.Host);
         if (!string.IsNullOrWhiteSpace(tenantIdentifier))
         {
-            _logger.LogDebug("Tenant resolved from subdomain: {TenantIdentifier}", tenantIdentifier);
-            return Task.FromResult(tenantIdentifier);
+            logger.LogDebug("Tenant resolved from subdomain: {TenantIdentifier}", tenantIdentifier);
+            return Task.FromResult(Result.Success(tenantIdentifier));
         }
         
         // Priority 2: Try header-based resolution (X-Tenant-Id or X-Tenant-Subdomain)
@@ -165,8 +158,8 @@ public class TenantResolutionMiddleware
             tenantIdentifier = tenantIdHeader.FirstOrDefault();
             if (!string.IsNullOrWhiteSpace(tenantIdentifier))
             {
-                _logger.LogDebug("Tenant resolved from X-Tenant-Id header: {TenantIdentifier}", tenantIdentifier);
-                return Task.FromResult(tenantIdentifier);
+                logger.LogDebug("Tenant resolved from X-Tenant-Id header: {TenantIdentifier}", tenantIdentifier);
+                return Task.FromResult(Result.Success(tenantIdentifier));
             }
         }
         
@@ -175,8 +168,8 @@ public class TenantResolutionMiddleware
             tenantIdentifier = tenantSubdomainHeader.FirstOrDefault();
             if (!string.IsNullOrWhiteSpace(tenantIdentifier))
             {
-                _logger.LogDebug("Tenant resolved from X-Tenant-Subdomain header: {TenantIdentifier}", tenantIdentifier);
-                return Task.FromResult(tenantIdentifier);
+                logger.LogDebug("Tenant resolved from X-Tenant-Subdomain header: {TenantIdentifier}", tenantIdentifier);
+                return Task.FromResult(Result.Success(tenantIdentifier));
             }
         }
         
@@ -186,23 +179,21 @@ public class TenantResolutionMiddleware
             tenantIdentifier = tenantQuery.FirstOrDefault();
             if (!string.IsNullOrWhiteSpace(tenantIdentifier))
             {
-                _logger.LogDebug("Tenant resolved from query parameter: {TenantIdentifier}", tenantIdentifier);
-                return Task.FromResult(tenantIdentifier);
+                logger.LogDebug("Tenant resolved from query parameter: {TenantIdentifier}", tenantIdentifier);
+                return Task.FromResult(Result.Success(tenantIdentifier));
             }
         }
         
         // Priority 4: Try route data (if using route-based tenancy)
-        if (context.Request.RouteValues.TryGetValue("tenant", out var tenantRoute))
-        {
-            tenantIdentifier = tenantRoute?.ToString();
-            if (!string.IsNullOrWhiteSpace(tenantIdentifier))
-            {
-                _logger.LogDebug("Tenant resolved from route: {TenantIdentifier}", tenantIdentifier);
-                return Task.FromResult(tenantIdentifier);
-            }
-        }
+        if (!context.Request.RouteValues.TryGetValue("tenant", out var tenantRoute))
+            return Task.FromResult<Result<string>>(Result.NotFound());
         
-        return Task.FromResult(tenantIdentifier);
+        tenantIdentifier = tenantRoute?.ToString();
+            
+        if (string.IsNullOrWhiteSpace(tenantIdentifier)) return Task.FromResult<Result<string>>(Result.NotFound());
+        
+        logger.LogDebug("Tenant resolved from route: {TenantIdentifier}", tenantIdentifier);
+        return Task.FromResult(Result.Success(tenantIdentifier));
     }
     
     /// <summary>
@@ -225,34 +216,30 @@ public class TenantResolutionMiddleware
         
         // Extract subdomain
         var baseDomain = _options.BaseDomain;
-        if (hostWithoutPort.EndsWith($".{baseDomain}", StringComparison.OrdinalIgnoreCase))
-        {
-            var subdomain = hostWithoutPort[..^(baseDomain.Length + 1)];
+        if (!hostWithoutPort.EndsWith($".{baseDomain}", StringComparison.OrdinalIgnoreCase)) return null;
+        var subdomain = hostWithoutPort[..^(baseDomain.Length + 1)];
             
-            // Validate subdomain format and check if it's not reserved
-            if (IsValidSubdomain(subdomain) && !IsReservedSubdomain(subdomain))
-            {
-                return subdomain.ToLowerInvariant();
-            }
+        // Validate subdomain format and check if it's not reserved
+        if (IsValidSubdomain(subdomain) && !IsReservedSubdomain(subdomain))
+        {
+            return subdomain.ToLowerInvariant();
         }
-        
+
         return null;
     }
     
     /// <summary>
     /// Validates subdomain format
     /// </summary>
-    private bool IsValidSubdomain(string subdomain)
+    private static bool IsValidSubdomain(string subdomain)
     {
         if (string.IsNullOrWhiteSpace(subdomain))
             return false;
-        
+
         // Check length (3-63 characters)
-        if (subdomain.Length < 3 || subdomain.Length > 63)
-            return false;
-        
-        // Check format using regex
-        return SubdomainRegex.IsMatch(subdomain);
+        return subdomain.Length is >= 3 and <= 63 &&
+               // Check format using regex
+               SubdomainRegex.IsMatch(subdomain);
     }
     
     /// <summary>

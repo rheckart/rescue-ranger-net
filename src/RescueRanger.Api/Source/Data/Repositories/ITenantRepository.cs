@@ -1,9 +1,7 @@
 using Ardalis.Result;
-using RescueRanger.Core.Entities;
-using RescueRanger.Core.Enums;
-using RescueRanger.Core.Models;
+using RescueRanger.Api.Entities;
 
-namespace RescueRanger.Core.Repositories;
+namespace RescueRanger.Api.Data.Repositories;
 
 /// <summary>
 /// Repository interface for tenant operations
@@ -60,7 +58,7 @@ public interface ITenantRepository
     /// <param name="pageSize">Page size for pagination</param>
     /// <returns>List of tenants</returns>
     Task<IEnumerable<TenantInfo>> GetAllAsync(
-        TenantStatus? status = null, 
+        string? status = null, 
         int pageNumber = 1, 
         int pageSize = 50);
     
@@ -86,7 +84,7 @@ public interface ITenantRepository
     /// <param name="status">The new status</param>
     /// <param name="reason">Optional reason for status change</param>
     /// <returns>True if updated successfully</returns>
-    Task<Result> UpdateStatusAsync(Guid tenantId, TenantStatus status, string? reason = null);
+    Task<Result> UpdateStatusAsync(Guid tenantId, string status, string? reason = null);
 
     /// <summary>
     /// Deletes a tenant (soft delete)

@@ -5,7 +5,7 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RescueRanger.Api", "src\RescueRanger.Api\RescueRanger.Api.csproj", "{093F02FF-2DDF-4142-8B5D-01959308022F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RescueRanger.Api1", "src\RescueRanger.Api1\RescueRanger.Api1.csproj", "{093F02FF-2DDF-4142-8B5D-01959308022F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RescueRanger.Core", "src\RescueRanger.Core\RescueRanger.Core.csproj", "{8F8D03B5-21B5-496C-8FC4-ABA8592129CF}"
 EndProject
@@ -18,6 +18,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RescueRanger.Api.Tests", "tests\RescueRanger.Api.Tests\RescueRanger.Api.Tests.csproj", "{2E496B32-CE36-452B-9E03-3DB38ED2CB02}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RescueRanger.Core.Tests", "tests\RescueRanger.Core.Tests\RescueRanger.Core.Tests.csproj", "{BB194206-C921-4375-9A07-1596294A5EBD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RescueRanger.Api", "src\RescueRanger.Api\Source\RescueRanger.Api.csproj", "{2396DCB2-7B0D-4CA6-ABF9-8466C2526C04}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -101,6 +103,18 @@ Global
 		{BB194206-C921-4375-9A07-1596294A5EBD}.Release|x64.Build.0 = Release|Any CPU
 		{BB194206-C921-4375-9A07-1596294A5EBD}.Release|x86.ActiveCfg = Release|Any CPU
 		{BB194206-C921-4375-9A07-1596294A5EBD}.Release|x86.Build.0 = Release|Any CPU
+		{2396DCB2-7B0D-4CA6-ABF9-8466C2526C04}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2396DCB2-7B0D-4CA6-ABF9-8466C2526C04}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2396DCB2-7B0D-4CA6-ABF9-8466C2526C04}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{2396DCB2-7B0D-4CA6-ABF9-8466C2526C04}.Debug|x64.Build.0 = Debug|Any CPU
+		{2396DCB2-7B0D-4CA6-ABF9-8466C2526C04}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{2396DCB2-7B0D-4CA6-ABF9-8466C2526C04}.Debug|x86.Build.0 = Debug|Any CPU
+		{2396DCB2-7B0D-4CA6-ABF9-8466C2526C04}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2396DCB2-7B0D-4CA6-ABF9-8466C2526C04}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2396DCB2-7B0D-4CA6-ABF9-8466C2526C04}.Release|x64.ActiveCfg = Release|Any CPU
+		{2396DCB2-7B0D-4CA6-ABF9-8466C2526C04}.Release|x64.Build.0 = Release|Any CPU
+		{2396DCB2-7B0D-4CA6-ABF9-8466C2526C04}.Release|x86.ActiveCfg = Release|Any CPU
+		{2396DCB2-7B0D-4CA6-ABF9-8466C2526C04}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -112,5 +126,6 @@ Global
 		{BA55EF2C-93A2-41C2-94F6-BCE4FC1089A7} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{2E496B32-CE36-452B-9E03-3DB38ED2CB02} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{BB194206-C921-4375-9A07-1596294A5EBD} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{2396DCB2-7B0D-4CA6-ABF9-8466C2526C04} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

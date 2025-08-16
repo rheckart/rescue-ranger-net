@@ -5,7 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
-using RescueRanger.Api.Middleware;
+using RescueRanger.Api1.Middleware;
 using RescueRanger.Core.Entities;
 using RescueRanger.Core.Enums;
 using RescueRanger.Core.Models;
@@ -13,7 +13,10 @@ using RescueRanger.Core.Repositories;
 using RescueRanger.Core.Services;
 using RescueRanger.Core.ValueObjects;
 using System.Text;
+using Ardalis.Result;
 using Xunit;
+using FastEndpoints.Testing;
+using FluentAssertions;
 
 namespace RescueRanger.Api.Tests.Middleware;
 
@@ -67,7 +70,7 @@ public class TenantResolutionMiddlewareTests
         await _middleware.InvokeAsync(context);
         
         // Assert
-        Assert.True(_nextCalled);
+        _nextCalled.Should().BeTrue();
         _mockTenantContextService.Verify(x => x.SetTenant(It.IsAny<TenantInfo>()), Times.Never);
     }
     
@@ -90,7 +93,7 @@ public class TenantResolutionMiddlewareTests
         await _middleware.InvokeAsync(context);
         
         // Assert
-        Assert.True(_nextCalled);
+        _nextCalled.Should().BeTrue();
         _mockTenantContextService.Verify(x => x.SetTenant(It.IsAny<TenantInfo>()), Times.Once);
         _mockTenantContextService.Verify(x => x.Clear(), Times.Once);
     }
@@ -115,7 +118,7 @@ public class TenantResolutionMiddlewareTests
         await _middleware.InvokeAsync(context);
         
         // Assert
-        Assert.True(_nextCalled);
+        _nextCalled.Should().BeTrue();
         _mockTenantContextService.Verify(x => x.SetTenant(It.IsAny<TenantInfo>()), Times.Once);
     }
     
@@ -138,7 +141,7 @@ public class TenantResolutionMiddlewareTests
         await _middleware.InvokeAsync(context);
         
         // Assert
-        Assert.True(_nextCalled);
+        _nextCalled.Should().BeTrue();
         _mockTenantContextService.Verify(x => x.SetTenant(It.IsAny<TenantInfo>()), Times.Once);
     }
     
@@ -150,17 +153,17 @@ public class TenantResolutionMiddlewareTests
         
         _mockTenantRepository
             .Setup(x => x.GetBySubdomainAsync("nonexistent"))
-            .ReturnsAsync((TenantInfo?)null);
+            .ReturnsAsync(Result.NotFound());
         
         // Act
         await _middleware.InvokeAsync(context);
         
         // Assert
-        Assert.False(_nextCalled);
-        Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
+        _nextCalled.Should().BeFalse();
+        context.Response.StatusCode.Should().Be(StatusCodes.Status404NotFound);
         
         var responseBody = await GetResponseBody(context);
-        Assert.Equal("Tenant not found", responseBody);
+        responseBody.Should().Be("Tenant not found");
     }
     
     [Fact]
@@ -182,11 +185,11 @@ public class TenantResolutionMiddlewareTests
         await _middleware.InvokeAsync(context);
         
         // Assert
-        Assert.False(_nextCalled);
-        Assert.Equal(StatusCodes.Status403Forbidden, context.Response.StatusCode);
-        
+        _nextCalled.Should().BeFalse();
+        context.Response.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
+
         var responseBody = await GetResponseBody(context);
-        Assert.Equal("Tenant access denied", responseBody);
+        responseBody.Should().Be("Tenant access denied");
     }
     
     [Fact]
@@ -200,7 +203,7 @@ public class TenantResolutionMiddlewareTests
         await _middleware.InvokeAsync(context);
         
         // Assert
-        Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
+        context.Response.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
         _mockTenantRepository.Verify(x => x.GetBySubdomainAsync(It.IsAny<string>()), Times.Never);
     }
     
@@ -220,7 +223,7 @@ public class TenantResolutionMiddlewareTests
         await _middleware.InvokeAsync(context);
         
         // Assert
-        Assert.True(_nextCalled);
+        _nextCalled.Should().BeTrue();
         _mockTenantContextService.Verify(x => x.SetTenant(It.IsAny<TenantInfo>()), Times.Once);
     }
     
@@ -238,8 +241,8 @@ public class TenantResolutionMiddlewareTests
         await _middleware.InvokeAsync(context);
         
         // Assert
-        Assert.False(_nextCalled);
-        Assert.Equal(StatusCodes.Status500InternalServerError, context.Response.StatusCode);
+        _nextCalled.Should().BeFalse();
+        context.Response.StatusCode.Should().Be(StatusCodes.Status500InternalServerError);
         _mockTenantContextService.Verify(x => x.Clear(), Times.Exactly(2)); // Once in catch, once in finally
     }
     
@@ -254,7 +257,7 @@ public class TenantResolutionMiddlewareTests
         await _middleware.InvokeAsync(context);
         
         // Assert
-        Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
+        context.Response.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
         _mockTenantRepository.Verify(x => x.GetBySubdomainAsync(It.IsAny<string>()), Times.Never);
     }
     

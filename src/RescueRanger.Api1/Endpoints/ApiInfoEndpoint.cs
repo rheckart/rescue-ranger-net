@@ -1,7 +1,7 @@
 using FastEndpoints;
 using System.Reflection;
 
-namespace RescueRanger.Api.Endpoints;
+namespace RescueRanger.Api1.Endpoints;
 
 public class ApiInfoEndpoint : EndpointWithoutRequest<ApiInfoResponse>
 {

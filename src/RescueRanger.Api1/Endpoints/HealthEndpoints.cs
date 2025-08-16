@@ -1,4 +1,4 @@
-namespace RescueRanger.Api.Endpoints;
+namespace RescueRanger.Api1.Endpoints;
 
 public class BasicHealthEndpoint(HealthCheckService healthCheckService) : EndpointWithoutRequest<HealthResponse>
 {

@@ -1,25 +1,16 @@
 using System.Net;
+using FastEndpoints.Testing;
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.VisualStudio.TestPlatform.TestHost;
-using Xunit;
 
 namespace RescueRanger.Api.Tests;
 
-public class HealthEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public class HealthEndpointTests(RescueRangerApp app) : TestBase<RescueRangerApp>
 {
-    private readonly HttpClient _client;
-
-    public HealthEndpointTests(WebApplicationFactory<Program> factory)
-    {
-        _client = factory.CreateClient();
-    }
-
     [Fact]
     public async Task BasicHealthEndpoint_ReturnsOk()
     {
         // Act
-        var response = await _client.GetAsync("/health");
+        var response = await app.Client.GetAsync("/health");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -32,7 +23,7 @@ public class HealthEndpointTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task ApiInfoEndpoint_ReturnsOk()
     {
         // Act
-        var response = await _client.GetAsync("/api/info");
+        var response = await app.Client.GetAsync("/api/info");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);

@@ -1,15 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
-using Microsoft.Extensions.Logging;
-using RescueRanger.Core.Entities;
-using RescueRanger.Core.Enums;
-using RescueRanger.Core.Models;
-using RescueRanger.Core.Repositories;
 using RescueRanger.Infrastructure.Data;
 using System.Text.Json;
 using Ardalis.Result;
+using RescueRanger.Api.Entities;
 
-namespace RescueRanger.Infrastructure.Repositories;
+namespace RescueRanger.Api.Data.Repositories;
 
 /// <summary>
 /// Repository implementation for tenant operations
@@ -168,15 +164,15 @@ public class TenantRepository(
     
     /// <inheritdoc />
     public async Task<IEnumerable<TenantInfo>> GetAllAsync(
-        TenantStatus? status = null, 
+        string? status = null, 
         int pageNumber = 1, 
         int pageSize = 50)
     {
         var query = context.AllTenants<Tenant>().AsQueryable();
         
-        if (status.HasValue)
+        if (status.HasValue())
         {
-            query = query.Where(t => t.Status == status.Value);
+            query = query.Where(t => t.Status == status);
         }
         
         var tenants = await query
@@ -227,7 +223,7 @@ public class TenantRepository(
     }
     
     /// <inheritdoc />
-    public async Task<Result> UpdateStatusAsync(Guid tenantId, TenantStatus status, string? reason = null)
+    public async Task<Result> UpdateStatusAsync(Guid tenantId, string status, string? reason = null)
     {
         var tenantResult = await GetTenantEntityByIdAsync(tenantId);
         if (tenantResult.IsNotFound())
