@@ -59,25 +59,25 @@
 ### Task 1.3: Tenant Resolution Middleware
 
 #### 1.3.1 Create Middleware Components
-- [ ] Create `TenantResolutionMiddleware` in `src/RescueRanger.Infrastructure/Middleware/`
-- [ ] Implement subdomain extraction from `HttpContext.Request.Host`
-- [ ] Add tenant resolution with error handling
-- [ ] Inject tenant context into DI container for request scope
-- [ ] Handle invalid tenant scenarios with proper HTTP responses
+- [x] Create `TenantResolutionMiddleware` in `src/RescueRanger.Infrastructure/Middleware/`
+- [x] Implement subdomain extraction from `HttpContext.Request.Host`
+- [x] Add tenant resolution with error handling
+- [x] Inject tenant context into DI container for request scope
+- [x] Handle invalid tenant scenarios with proper HTTP responses
 
 #### 1.3.2 Configure Middleware Pipeline
-- [ ] Register middleware in `Program.cs` before authentication
-- [ ] Add middleware configuration options
-- [ ] Implement tenant validation rules
-- [ ] Add health check bypass for non-tenant endpoints
-- [ ] Configure CORS policies to work with subdomains
+- [x] Register middleware in `Program.cs` before authentication
+- [x] Add middleware configuration options
+- [x] Implement tenant validation rules
+- [x] Add health check bypass for non-tenant endpoints
+- [x] Configure CORS policies to work with subdomains
 
 #### 1.3.3 Error Handling and Logging
-- [ ] Create custom exceptions for tenant resolution failures
-- [ ] Implement structured logging with tenant context
-- [ ] Add performance metrics for tenant resolution
-- [ ] Create health check for tenant resolution functionality
-- [ ] Add monitoring for tenant resolution success/failure rates
+- [x] Create custom exceptions for tenant resolution failures
+- [x] Implement structured logging with tenant context
+- [x] Add performance metrics for tenant resolution
+- [x] Create health check for tenant resolution functionality
+- [x] Add monitoring for tenant resolution success/failure rates
 
 ## Phase 2: API Integration (Week 1-2)
 

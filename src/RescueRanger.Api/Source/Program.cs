@@ -2,6 +2,7 @@ using Amazon;
 using Amazon.SimpleEmailV2;
 using LettuceEncrypt;
 using RescueRanger.Api.Data.Repositories;
+using RescueRanger.Api.HealthChecks;
 using RescueRanger.Api.Services;
 using RescueRanger.Api1.Middleware;
 using RescueRanger.Infrastructure.Services;
@@ -85,12 +86,42 @@ healthChecksBuilder.AddRedis(
     name: "redis",
     tags: ["cache", "redis"]);
 
-// Add CORS for development
+// Add tenant resolution health check
+healthChecksBuilder.AddTypeActivatedCheck<TenantResolutionHealthCheck>(
+    "tenant-resolution",
+    tags: ["tenant", "middleware"]);
+
+// Add CORS for development and multi-tenant support
 bld.Services.AddCors(options =>
 {
     options.AddPolicy("DevelopmentPolicy", policy =>
     {
         policy.WithOrigins("http://localhost:9001")
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
+    
+    // Multi-tenant CORS policy for subdomains
+    options.AddPolicy("MultiTenantPolicy", policy =>
+    {
+        policy.SetIsOriginAllowed(origin =>
+              {
+                  var uri = new Uri(origin);
+                  var host = uri.Host;
+                  
+                  // Allow localhost for development
+                  if (host == "localhost" || host == "127.0.0.1")
+                      return true;
+                  
+                  // Get base domain from configuration
+                  var config = bld.Configuration.GetSection("MultiTenant");
+                  var baseDomain = config["BaseDomain"] ?? "rescueranger.com";
+                  
+                  // Allow any subdomain of the base domain
+                  return host.EndsWith($".{baseDomain}", StringComparison.OrdinalIgnoreCase) ||
+                         host.Equals(baseDomain, StringComparison.OrdinalIgnoreCase);
+              })
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
@@ -115,6 +146,9 @@ else
 
 // Configure Multi-Tenant Options
 bld.Services.Configure<MultiTenantOptions>(bld.Configuration.GetSection("MultiTenant"));
+
+// Register tenant resolution metrics
+bld.Services.AddSingleton<TenantResolutionMetrics>();
     
 // Register tenant services
 bld.Services.AddScoped<ITenantContextService, TenantContextService>();
@@ -175,6 +209,11 @@ if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
     app.UseCors("DevelopmentPolicy");
+}
+else
+{
+    // Use multi-tenant CORS policy in production
+    app.UseCors("MultiTenantPolicy");
 }
 
 if (!app.Environment.IsProduction())

@@ -92,4 +92,10 @@ public interface ITenantRepository
     /// <param name="tenantId">The tenant ID</param>
     /// <returns>True if deleted successfully</returns>
     Task<Result> DeleteAsync(Guid tenantId);
+    
+    /// <summary>
+    /// Gets the count of active tenants
+    /// </summary>
+    /// <returns>Number of active tenants</returns>
+    Task<int> GetActiveTenantsCountAsync();
 }

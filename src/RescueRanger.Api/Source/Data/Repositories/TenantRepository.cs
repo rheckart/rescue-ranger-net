@@ -324,4 +324,12 @@ public class TenantRepository(
             logger.LogWarning(ex, "Failed to invalidate tenant cache: {TenantId} ({Subdomain})", tenantId, subdomain);
         }
     }
+    
+    /// <inheritdoc />
+    public async Task<int> GetActiveTenantsCountAsync()
+    {
+        return await context.Tenants
+            .Where(t => t.Status == TenantStatus.Active)
+            .CountAsync();
+    }
 }

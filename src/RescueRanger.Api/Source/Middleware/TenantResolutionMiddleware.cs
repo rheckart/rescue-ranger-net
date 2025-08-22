@@ -1,7 +1,9 @@
 using Microsoft.Extensions.Options;
 using RescueRanger.Api.Data.Repositories;
 using RescueRanger.Api.Services;
+using RescueRanger.Api.Exceptions;
 using System.Text.RegularExpressions;
+using System.Diagnostics;
 using Ardalis.Result;
 
 namespace RescueRanger.Api1.Middleware;
@@ -12,7 +14,8 @@ namespace RescueRanger.Api1.Middleware;
 public partial class TenantResolutionMiddleware(
     RequestDelegate next,
     ILogger<TenantResolutionMiddleware> logger,
-    IOptions<MultiTenantOptions> options)
+    IOptions<MultiTenantOptions> options,
+    TenantResolutionMetrics metrics)
 {
     private readonly MultiTenantOptions _options = options.Value;
     private static readonly Regex _subdomainRegex = SubdomainRegex();
@@ -30,14 +33,23 @@ public partial class TenantResolutionMiddleware(
         var tenantContextService = context.RequestServices.GetRequiredService<ITenantContextService>();
         var tenantRepository = context.RequestServices.GetRequiredService<ITenantRepository>();
 
+        // Start performance timing
+        var stopwatch = Stopwatch.StartNew();
+        var resolutionSuccess = false;
+        string? resolutionMethod = null;
+
         try
         {
             // Try to resolve tenant from multiple sources
-            var tenantIdentifier = await ResolveTenantIdentifierAsync(context);
+            var resolutionResult = await ResolveTenantIdentifierAsync(context);
             
-            if (!string.IsNullOrWhiteSpace(tenantIdentifier))
+            if (resolutionResult.IsSuccess)
             {
-                logger.LogDebug("Tenant identifier resolved: {TenantIdentifier}", tenantIdentifier);
+                var tenantIdentifier = resolutionResult.Value;
+                resolutionMethod = resolutionResult.Metadata?["Method"] as string ?? "Unknown";
+                
+                logger.LogDebug("Tenant identifier resolved via {Method}: {TenantIdentifier}", 
+                    resolutionMethod, tenantIdentifier);
                 
                 // Look up tenant in database
                 var tenantResult = await tenantRepository.GetBySubdomainAsync(tenantIdentifier);
@@ -58,9 +70,13 @@ public partial class TenantResolutionMiddleware(
                     
                     // Set tenant context
                     tenantContextService.SetTenant(tenantInfo);
+                    resolutionSuccess = true;
                     
-                    logger.LogInformation("Tenant context set for {TenantName} ({TenantId})", 
-                        tenant.Name, tenant.Id);
+                    // Record success metrics
+                    metrics.RecordSuccess(resolutionMethod, stopwatch.ElapsedMilliseconds, tenant.Id.ToString());
+                    
+                    logger.LogInformation("Tenant context set for {TenantName} ({TenantId}) via {Method} in {ElapsedMs}ms", 
+                        tenant.Name, tenant.Id, resolutionMethod, stopwatch.ElapsedMilliseconds);
                     
                     // Validate tenant access
                     if (!await tenantContextService.ValidateTenantAccessAsync())
@@ -77,6 +93,9 @@ public partial class TenantResolutionMiddleware(
                 {
                     logger.LogWarning("Tenant not found for identifier: {TenantIdentifier}", tenantIdentifier);
                     
+                    // Record failure metric
+                    metrics.RecordFailure("tenant_not_found", stopwatch.ElapsedMilliseconds, resolutionMethod);
+                    
                     // In production, you might want to return 404 or redirect to a default page
                     context.Response.StatusCode = StatusCodes.Status404NotFound;
                     await context.Response.WriteAsync("Tenant not found");
@@ -87,6 +106,10 @@ public partial class TenantResolutionMiddleware(
             {
                 // In production, tenant resolution is required
                 logger.LogWarning("No tenant identifier found in request");
+                
+                // Record failure metric
+                metrics.RecordFailure("no_tenant_identifier", stopwatch.ElapsedMilliseconds);
+                
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
                 await context.Response.WriteAsync("Tenant identifier required");
                 return;
@@ -123,6 +146,9 @@ public partial class TenantResolutionMiddleware(
         {
             logger.LogError(ex, "Error resolving tenant context");
             
+            // Record failure metric
+            metrics.RecordFailure($"exception:{ex.GetType().Name}", stopwatch.ElapsedMilliseconds, resolutionMethod);
+            
             // Clear any partial tenant context
             tenantContextService.Clear();
             
@@ -132,6 +158,21 @@ public partial class TenantResolutionMiddleware(
         }
         finally
         {
+            stopwatch.Stop();
+            
+            // Log performance metrics
+            logger.LogInformation("Tenant resolution completed - Success: {Success}, Method: {Method}, Duration: {DurationMs}ms", 
+                resolutionSuccess, 
+                resolutionMethod ?? "None", 
+                stopwatch.ElapsedMilliseconds);
+            
+            // Log warning if resolution took too long
+            if (stopwatch.ElapsedMilliseconds > 50)
+            {
+                logger.LogWarning("Tenant resolution took {DurationMs}ms, which exceeds the 50ms threshold", 
+                    stopwatch.ElapsedMilliseconds);
+            }
+            
             // Clear tenant context after request (important for thread safety)
             tenantContextService.Clear();
         }
@@ -148,7 +189,9 @@ public partial class TenantResolutionMiddleware(
         if (!string.IsNullOrWhiteSpace(tenantIdentifier))
         {
             logger.LogDebug("Tenant resolved from subdomain: {TenantIdentifier}", tenantIdentifier);
-            return Task.FromResult(Result.Success(tenantIdentifier));
+            var result = Result.Success(tenantIdentifier);
+            result.Metadata = new Dictionary<string, object> { ["Method"] = "Subdomain" };
+            return Task.FromResult(result);
         }
         
         // Priority 2: Try header-based resolution (X-Tenant-Id or X-Tenant-Subdomain)
@@ -158,7 +201,9 @@ public partial class TenantResolutionMiddleware(
             if (!string.IsNullOrWhiteSpace(tenantIdentifier))
             {
                 logger.LogDebug("Tenant resolved from X-Tenant-Id header: {TenantIdentifier}", tenantIdentifier);
-                return Task.FromResult(Result.Success(tenantIdentifier));
+                var result = Result.Success(tenantIdentifier);
+                result.Metadata = new Dictionary<string, object> { ["Method"] = "X-Tenant-Id Header" };
+                return Task.FromResult(result);
             }
         }
         
@@ -168,7 +213,9 @@ public partial class TenantResolutionMiddleware(
             if (!string.IsNullOrWhiteSpace(tenantIdentifier))
             {
                 logger.LogDebug("Tenant resolved from X-Tenant-Subdomain header: {TenantIdentifier}", tenantIdentifier);
-                return Task.FromResult(Result.Success(tenantIdentifier));
+                var result = Result.Success(tenantIdentifier);
+                result.Metadata = new Dictionary<string, object> { ["Method"] = "X-Tenant-Subdomain Header" };
+                return Task.FromResult(result);
             }
         }
         
@@ -179,7 +226,9 @@ public partial class TenantResolutionMiddleware(
             if (!string.IsNullOrWhiteSpace(tenantIdentifier))
             {
                 logger.LogDebug("Tenant resolved from query parameter: {TenantIdentifier}", tenantIdentifier);
-                return Task.FromResult(Result.Success(tenantIdentifier));
+                var result = Result.Success(tenantIdentifier);
+                result.Metadata = new Dictionary<string, object> { ["Method"] = "Query Parameter" };
+                return Task.FromResult(result);
             }
         }
         
@@ -192,7 +241,9 @@ public partial class TenantResolutionMiddleware(
         if (string.IsNullOrWhiteSpace(tenantIdentifier)) return Task.FromResult<Result<string>>(Result.NotFound());
         
         logger.LogDebug("Tenant resolved from route: {TenantIdentifier}", tenantIdentifier);
-        return Task.FromResult(Result.Success(tenantIdentifier));
+        var routeResult = Result.Success(tenantIdentifier);
+        routeResult.Metadata = new Dictionary<string, object> { ["Method"] = "Route" };
+        return Task.FromResult(routeResult);
     }
     
     /// <summary>
