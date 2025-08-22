@@ -3,7 +3,6 @@ using RescueRanger.Api.Data.Repositories;
 using RescueRanger.Api.Services;
 using System.Text.RegularExpressions;
 using Ardalis.Result;
-using RescueRanger.Api.Entities;
 
 namespace RescueRanger.Api1.Middleware;
 

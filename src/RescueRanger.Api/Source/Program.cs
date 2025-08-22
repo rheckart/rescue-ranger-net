@@ -1,13 +1,9 @@
 using Amazon;
 using Amazon.SimpleEmailV2;
-using Dom;
 using LettuceEncrypt;
-using Microsoft.EntityFrameworkCore;
 using RescueRanger.Api.Data.Repositories;
-using RescueRanger.Api.Entities;
 using RescueRanger.Api.Services;
 using RescueRanger.Api1.Middleware;
-using RescueRanger.Infrastructure.Data;
 using RescueRanger.Infrastructure.Services;
 using Serilog;
 using Serilog.Events;
@@ -85,7 +81,7 @@ if (!string.IsNullOrEmpty(connectionString))
 
 // Add Redis health check
 healthChecksBuilder.AddRedis(
-    redisConnectionString,
+    redisConnectionString ?? throw new InvalidOperationException("Empty Redis connection string"),
     name: "redis",
     tags: ["cache", "redis"]);
 
