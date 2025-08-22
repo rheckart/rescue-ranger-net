@@ -1,14 +1,14 @@
-﻿using MessagePack;
-using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
+using MessagePack;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Dom;
+namespace RescueRanger.Api.Entities;
 
-sealed class JobRecord : Entity, IJobStorageRecord
+public class JobRecord : BaseEntity, IJobStorageRecord
 {
-    public string QueueID { get; set; }
+    [Required]
+    public string QueueID { get; set; } = string.Empty;
 
-    [BsonGuidRepresentation(GuidRepresentation.Standard)]
     public Guid TrackingID { get; set; }
 
     public DateTime ExecuteAfter { get; set; }
@@ -16,34 +16,52 @@ sealed class JobRecord : Entity, IJobStorageRecord
     public bool IsComplete { get; set; }
     public int FailureCount { get; set; }
 
-    [IgnoreDefault]
     public string? FailureReason { get; set; }
-
-    [IgnoreDefault]
     public bool? IsCancelled { get; set; }
-
-    [IgnoreDefault]
     public DateTime? CancelledOn { get; set; }
 
     static JobRecord()
     {
         MessagePackSerializer.DefaultOptions = MessagePack.Resolvers.ContractlessStandardResolver.Options;
-        _ = DB.Index<JobRecord>()
-              .Key(r => r.QueueID, KeyType.Ascending)
-              .Key(r => r.IsComplete, KeyType.Ascending)
-              .Key(r => r.ExecuteAfter, KeyType.Ascending)
-              .Key(r => r.ExpireOn, KeyType.Ascending)
-              .CreateAsync(); //covers job storage provider's GetNextBatchAsync query
     }
 
-    public byte[] CommandMsgPack { get; set; }
+    // Store serialized command as byte array in database
+    private byte[] _commandBytes = [];
+    
+    [NotMapped]
+    public object Command 
+    { 
+        get => _commandBytes;
+        set => _commandBytes = (byte[])value;
+    }
 
-    TCommand IJobStorageRecord.GetCommand<TCommand>()
-        => MessagePackSerializer.Deserialize<TCommand>(CommandMsgPack);
+    // Store command bytes in database
+    public byte[] CommandBytes 
+    { 
+        get => _commandBytes;
+        set => _commandBytes = value;
+    }
 
     void IJobStorageRecord.SetCommand<TCommand>(TCommand command)
-        => CommandMsgPack = MessagePackSerializer.Serialize(command);
+    {
+        _commandBytes = MessagePackSerializer.Serialize(command);
+    }
 
-    [Ignore]
-    public object Command { get; set; }
+    TCommand IJobStorageRecord.GetCommand<TCommand>()
+    {
+        return MessagePackSerializer.Deserialize<TCommand>(_commandBytes);
+    }
+
+    // Ignore attribute is MongoDB-specific, removed
+    [NotMapped]
+    public bool DeleteAfterSuccess => true;
+
+    [NotMapped]
+    public bool DeleteAfterFailure => false;
+
+    [NotMapped]
+    public bool DeleteAfterCancellation => true;
+
+    [NotMapped]
+    public bool DeleteAfterExpiry => true;
 }

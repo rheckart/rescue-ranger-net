@@ -1,19 +1,14 @@
-﻿using MongoDB.Bson.Serialization.Attributes;
+using System.ComponentModel.DataAnnotations;
 
-namespace Dom;
+namespace RescueRanger.Api.Entities;
 
-sealed class NotificationTemplate : IEntity
+public class NotificationTemplate : BaseEntity
 {
-    [BsonId]
-    public string ID { get; init; } //set the template name as id
+    [Required]
+    [MaxLength(100)]
+    public string TemplateName { get; set; } = string.Empty;
 
-    public string SmsBody { get; init; }
-    public string EmailSubject { get; init; }
-    public string EmailBody { get; init; }
-
-    public object GenerateNewID()
-        => ID; //because we're setting the ID manually
-
-    public bool HasDefaultID()
-        => !string.IsNullOrEmpty(ID);
+    public string SmsBody { get; set; } = string.Empty;
+    public string EmailSubject { get; set; } = string.Empty;
+    public string EmailBody { get; set; } = string.Empty;
 }

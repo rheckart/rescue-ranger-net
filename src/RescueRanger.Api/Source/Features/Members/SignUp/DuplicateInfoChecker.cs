@@ -1,25 +1,31 @@
-﻿namespace Members.Signup;
+namespace Members.Signup;
 
 sealed class DuplicateInfoChecker : IPreProcessor<Request>
 {
-    public async Task PreProcessAsync(IPreProcessorContext<Request> ctx, CancellationToken c)
+    private readonly ApplicationDbContext _dbContext;
+    
+    public DuplicateInfoChecker(ApplicationDbContext dbContext)
     {
-        var tEmail = DB.Find<Dom.Member>()
-                       .Match(m => m.Email == ctx.Request!.Email.LowerCase())
-                       .ExecuteAnyAsync(cancellation: c);
+        _dbContext = dbContext;
+    }
+    
+    public async Task PreProcessAsync(IPreProcessorContext<Request> ctx, CancellationToken ct)
+    {
+        var emailTask = _dbContext.Members
+            .AnyAsync(m => m.Email == ctx.Request.Email.ToLower(), ct);
+            
+        var mobileTask = _dbContext.Members
+            .AnyAsync(m => m.MobileNumber == ctx.Request.Contact.MobileNumber.Trim(), ct);
 
-        var tMobile = DB.Find<Dom.Member>()
-                        .Match(m => m.MobileNumber == ctx.Request!.Contact.MobileNumber.Trim())
-                        .ExecuteAnyAsync(cancellation: c);
+        await Task.WhenAll(emailTask, mobileTask);
 
-        var (eml, mob) = await Tasks.Run(tEmail, tMobile);
-
-        if (eml)
+        if (emailTask.Result)
             ctx.ValidationFailures.Add(new(nameof(Request.Email), "Email address is in use!"));
-        if (mob)
+            
+        if (mobileTask.Result)
             ctx.ValidationFailures.Add(new($"{nameof(Request.Contact)}.{nameof(Request.Contact.MobileNumber)}", "Mobile number is in use!"));
 
         if (ctx.ValidationFailures.Count > 0)
-            await ctx.HttpContext.Response.SendErrorsAsync(ctx.ValidationFailures, cancellation: c);
+            await ctx.HttpContext.Response.SendErrorsAsync(ctx.ValidationFailures, cancellation: ct);
     }
 }

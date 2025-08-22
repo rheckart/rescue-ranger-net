@@ -1,25 +1,51 @@
-﻿using Amazon.SimpleEmailV2;
-using Dom;
+using Amazon.SimpleEmailV2;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Members.Signup.Tests;
 
 public class Sut : AppFixture<Program>
 {
     internal Request SignupRequest { get; set; } = default!;
-    internal string? MemberId { get; set; }
+    internal Guid? MemberId { get; set; }
+    private ApplicationDbContext? _dbContext;
 
     protected override void ConfigureApp(IWebHostBuilder a)
     {
         a.UseContentRoot(Directory.GetCurrentDirectory());
+        a.UseEnvironment("Testing");
+        
+        // Override the database configuration at the WebHost level
+        a.ConfigureServices(services =>
+        {
+            // Remove existing DbContext configuration
+            var dbContextDescriptor = services.SingleOrDefault(
+                d => d.ServiceType == typeof(DbContextOptions<ApplicationDbContext>));
+            if (dbContextDescriptor != null)
+                services.Remove(dbContextDescriptor);
+                
+            var dbContextOptionsDescriptor = services.SingleOrDefault(
+                d => d.ServiceType == typeof(DbContextOptionsBuilder<ApplicationDbContext>));
+            if (dbContextOptionsDescriptor != null)
+                services.Remove(dbContextOptionsDescriptor);
+
+            // Add InMemory database
+            services.AddDbContext<ApplicationDbContext>(options =>
+            {
+                options.UseInMemoryDatabase($"TestDb_{Guid.NewGuid()}");
+                options.EnableSensitiveDataLogging();
+            });
+            
+            // Override the SES client
+            services.AddSingleton<IAmazonSimpleEmailServiceV2, SesClient>();
+        });
     }
 
-    protected override void ConfigureServices(IServiceCollection s)
+    protected override async ValueTask SetupAsync()
     {
-        s.AddSingleton<IAmazonSimpleEmailServiceV2, SesClient>();
-    }
+        _dbContext = Services.GetRequiredService<ApplicationDbContext>();
+        await _dbContext.Database.EnsureCreatedAsync();
 
-    protected override ValueTask SetupAsync()
-    {
         SignupRequest = new()
         {
             UserDetails = new()
@@ -44,13 +70,23 @@ public class Sut : AppFixture<Program>
             Email = Fake.Internet.Email(),
             Gender = "Male"
         };
-
-        return ValueTask.CompletedTask;
     }
 
     protected override async ValueTask TearDownAsync()
     {
-        await DB.DeleteAsync<Member>(MemberId);
-        await DB.DeleteAsync<JobRecord>(j => j.IsComplete == true);
+        if (_dbContext != null)
+        {
+            if (MemberId.HasValue)
+            {
+                var member = await _dbContext.Members.FindAsync(MemberId.Value);
+                if (member != null)
+                {
+                    _dbContext.Members.Remove(member);
+                    await _dbContext.SaveChangesAsync();
+                }
+            }
+            
+            await _dbContext.DisposeAsync();
+        }
     }
 }

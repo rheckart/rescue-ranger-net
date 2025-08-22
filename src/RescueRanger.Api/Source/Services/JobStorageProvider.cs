@@ -1,37 +1,55 @@
-﻿using Dom;
-using Order = MongoDB.Entities.Order;
+using Microsoft.EntityFrameworkCore;
 
-namespace RescueRanger.Api;
+namespace RescueRanger.Api.Services;
 
-sealed class JobStorageProvider : IJobStorageProvider<JobRecord>
+public class JobStorageProvider : IJobStorageProvider<JobRecord>
 {
+    private readonly IServiceScopeFactory _scopeFactory;
+
+    public JobStorageProvider(IServiceScopeFactory scopeFactory)
+    {
+        _scopeFactory = scopeFactory;
+    }
+
     public async Task<IEnumerable<JobRecord>> GetNextBatchAsync(PendingJobSearchParams<JobRecord> p)
     {
-        return await DB.Find<JobRecord>()
-                       .Match(p.Match)
-                       .Sort(r => r.ID, Order.Ascending)
-                       .Limit(p.Limit)
-                       .ExecuteAsync(p.CancellationToken);
+        using var scope = _scopeFactory.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        
+        var records = await dbContext.JobRecords
+            .OrderBy(r => r.Id)
+            .Take(p.Limit)
+            .ToListAsync(p.CancellationToken);
+            
+        // Apply the expression filter in memory since EF Core can't translate arbitrary expressions
+        return records.Where(p.Match.Compile());
     }
 
-    public Task MarkJobAsCompleteAsync(JobRecord r, CancellationToken ct)
+    public async Task MarkJobAsCompleteAsync(JobRecord r, CancellationToken ct)
     {
-        return DB.Update<JobRecord>()
-                 .MatchID(r.ID)
-                 .Modify(jr => jr.IsComplete, true)
-                 .ExecuteAsync(ct);
+        using var scope = _scopeFactory.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        
+        await dbContext.JobRecords
+            .Where(jr => jr.Id == r.Id)
+            .ExecuteUpdateAsync(s => s.SetProperty(jr => jr.IsComplete, true), ct);
     }
 
-    public Task CancelJobAsync(Guid trackingId, CancellationToken ct)
+    public async Task CancelJobAsync(Guid trackingId, CancellationToken ct)
     {
-        return DB.Update<JobRecord>()
-                 .Match(r => r.TrackingID == trackingId)
-                 .Modify(jr => jr.IsComplete, true)
-                 .ExecuteAsync(ct);
+        using var scope = _scopeFactory.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        
+        await dbContext.JobRecords
+            .Where(r => r.TrackingID == trackingId)
+            .ExecuteUpdateAsync(s => s.SetProperty(jr => jr.IsComplete, true), ct);
     }
 
-    public Task OnHandlerExecutionFailureAsync(JobRecord r, Exception exception, CancellationToken ct)
+    public async Task OnHandlerExecutionFailureAsync(JobRecord r, Exception exception, CancellationToken ct)
     {
+        using var scope = _scopeFactory.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
         if (r.FailureCount > 100)
         {
             r.IsComplete = true;
@@ -39,24 +57,40 @@ sealed class JobStorageProvider : IJobStorageProvider<JobRecord>
             r.CancelledOn = DateTime.UtcNow;
             r.FailureReason = exception.Message;
 
-            return r.SaveAsync(cancellation: ct);
+            dbContext.JobRecords.Update(r);
+            await dbContext.SaveChangesAsync(ct);
+            return;
         }
 
         var retryOn = DateTime.UtcNow.AddMinutes(1);
         var expireOn = retryOn.AddHours(4);
 
-        return DB.Update<JobRecord>()
-                 .MatchID(r.ID)
-                 .Modify(jr => jr.FailureReason, exception.Message) //save exception msg
-                 .Modify(b => b.Inc(jr => jr.FailureCount, 1))      //increment the failure count.
-                 .Modify(jr => jr.ExecuteAfter, retryOn)            //slide the execute after to 1 min in the future.
-                 .Modify(jr => jr.ExpireOn, expireOn)               //slide the expiry on to 4 hours from execute after time.
-                 .ExecuteAsync(ct);
+        await dbContext.JobRecords
+            .Where(jr => jr.Id == r.Id)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(jr => jr.FailureReason, exception.Message)
+                .SetProperty(jr => jr.FailureCount, jr => jr.FailureCount + 1)
+                .SetProperty(jr => jr.ExecuteAfter, retryOn)
+                .SetProperty(jr => jr.ExpireOn, expireOn), ct);
     }
 
-    public Task PurgeStaleJobsAsync(StaleJobSearchParams<JobRecord> p)
-        => DB.DeleteAsync(p.Match, cancellation: p.CancellationToken);
+    public async Task PurgeStaleJobsAsync(StaleJobSearchParams<JobRecord> p)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        
+        // Get records to delete first
+        var recordsToDelete = dbContext.JobRecords.Where(p.Match.Compile()).ToList();
+        dbContext.JobRecords.RemoveRange(recordsToDelete);
+        await dbContext.SaveChangesAsync(p.CancellationToken);
+    }
 
-    public Task StoreJobAsync(JobRecord r, CancellationToken ct)
-        => r.SaveAsync(cancellation: ct);
+    public async Task StoreJobAsync(JobRecord r, CancellationToken ct)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        
+        dbContext.JobRecords.Add(r);
+        await dbContext.SaveChangesAsync(ct);
+    }
 }

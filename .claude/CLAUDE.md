@@ -73,10 +73,24 @@ pnpm format
 ## Architecture Patterns
 
 ### Backend Structure
-- **FastEndpoints**: Each endpoint in its own class file with request/response DTOs
-- **Vertical Slice Architecture**: Features organized by business capability, not technical layers
+- **FastEndpoints**:
+  - IMPORTANT: Use the `Features` folder for FastEndpoint endpoints
+  - IMPORTANT: Look at the `Features/AppHealth` folder and subfolders to understand how to structure endpoints, tests, and DTOs
+  - IMPORTANT: Use Vertical Slice Architecture - Features should be organized by feature capability, not technical layers
+- **Dependency Injection**: 
+  - Use ASP.NET Core DI container for service registration
+- **Repository Pattern**: 
+  - Use Entity Framework Core repositories for CRUD operations
+  - Respositories and other Entity Framework Core code should be kept in the `Data` folder
+- **Unit of Work Pattern**: EF Core transactions for atomic operations
+- **Fluent Validation**: Model validation with FluentValidation
+  - IMPORTANT: Keep the validation code next to Features and DTOs as much as possible
+- **Authorization**: ASP.NET Core Identity with role-based authorization
 - **Multi-tenant Design**: Tenant resolution via subdomain or API header slug
 - **Result Pattern**: Use Ardalis.Result for operation outcomes, not exceptions
+- ** Primary ID Keys**:
+  - Use Vogen for strongly-typed IDs
+  - Prefer using version 7 GUIDs for primary keys
 
 ### Frontend Structure
 - **Component Organization**: Features-based structure matching backend slices

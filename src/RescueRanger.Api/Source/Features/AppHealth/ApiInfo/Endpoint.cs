@@ -9,7 +9,7 @@ public class Endpoint : EndpointWithoutRequest<Response>
         Get("/api/info");
         AllowAnonymous();
         Description(b => b
-                         .Produces<Response>(200)
+                         .Produces<Response>()
                          .WithTags("System"));
         Summary(s =>
         {

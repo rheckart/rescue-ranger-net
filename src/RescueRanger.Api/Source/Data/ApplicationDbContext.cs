@@ -25,6 +25,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Horse> Horses => Set<Horse>();
+    public DbSet<Member> Members => Set<Member>();
+    public DbSet<JobRecord> JobRecords => Set<JobRecord>();
+    public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

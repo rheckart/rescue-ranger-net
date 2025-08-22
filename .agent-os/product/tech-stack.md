@@ -6,6 +6,8 @@
 - **Programming Language:** C# 13
 - **Database System:** PostgreSQL 17+
 - **ORM:** Entity Framework Core
+- **Ardalis.Result:** Result pattern for API responses
+- **Vogen:** Strongly-typed primary keys
 - **API Architecture:** FastEndpoints Nuget Package together with ASP.NET Core Web Minimal API
 
 ## Frontend Technologies

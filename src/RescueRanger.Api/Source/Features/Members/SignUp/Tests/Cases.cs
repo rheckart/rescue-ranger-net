@@ -1,7 +1,7 @@
-﻿using System.Net;
+using System.Net;
 using Amazon.SimpleEmailV2;
-using Dom;
-using MongoDB.Bson;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Members.Signup.Tests;
 
@@ -28,11 +28,11 @@ public class Cases(Sut App) : TestBase<Sut>
             }
         };
 
-        var (rsp, res) = await App.Client.POSTAsync<Endpoint, Request, ProblemDetails>(req);
+        var (rsp, res) = await App.Client.POSTAsync<Endpoint, Request, ErrorResponse>(req);
 
         rsp.IsSuccessStatusCode.ShouldBeFalse();
 
-        var errKeys = res.Errors.Select(e => e.Name).ToList();
+        var errKeys = res.Errors.Keys.ToList();
         errKeys.ShouldBe(
         [
             "userDetails.FirstName",
@@ -52,49 +52,41 @@ public class Cases(Sut App) : TestBase<Sut>
         var (rsp, res) = await App.Client.POSTAsync<Endpoint, Request, Response>(App.SignupRequest);
 
         rsp.IsSuccessStatusCode.ShouldBeTrue();
-        ObjectId.TryParse(res.MemberId, out _).ShouldBeTrue();
-        App.MemberId = res.MemberId;
+        Guid.TryParse(res.MemberId, out var memberId).ShouldBeTrue();
+        App.MemberId = memberId;
         res.MemberNumber.ShouldBeOfType<ulong>();
         res.MemberNumber.ShouldBeGreaterThan(0UL);
 
-        var actual = await DB.Find<Member>()
-                             .MatchID(App.MemberId)
-                             .ExecuteSingleAsync(Cancellation);
+        var dbContext = App.Services.GetRequiredService<ApplicationDbContext>();
+        var actual = await dbContext.Members
+            .FirstOrDefaultAsync(m => m.Id == App.MemberId);
 
-        var expected = new Member
-        {
-            Address = new()
-            {
-                City = App.SignupRequest.Address.City,
-                State = App.SignupRequest.Address.State,
-                ZipCode = App.SignupRequest.Address.ZipCode,
-                Street = App.SignupRequest.Address.Street
-            },
-            BirthDay = DateOnly.Parse(App.SignupRequest.BirthDay),
-            Email = App.SignupRequest.Email.LowerCase(),
-            FirstName = App.SignupRequest.UserDetails.FirstName,
-            Gender = App.SignupRequest.Gender,
-            ID = App.MemberId,
-            LastName = App.SignupRequest.UserDetails.LastName.TitleCase(),
-            MemberNumber = res.MemberNumber,
-            SignupDate = DateOnly.FromDateTime(DateTime.UtcNow),
-            MobileNumber = App.SignupRequest.Contact.MobileNumber
-        };
-
-        actual.ShouldBeEquivalentTo(expected);
+        actual.ShouldNotBeNull();
+        actual.City.ShouldBe(App.SignupRequest.Address.City.TitleCase());
+        actual.State.ShouldBe(App.SignupRequest.Address.State.TitleCase());
+        actual.ZipCode.ShouldBe(App.SignupRequest.Address.ZipCode.Trim());
+        actual.Street.ShouldBe(App.SignupRequest.Address.Street.Trim());
+        actual.BirthDay.ShouldBe(DateOnly.Parse(App.SignupRequest.BirthDay));
+        actual.Email.ShouldBe(App.SignupRequest.Email.LowerCase());
+        actual.FirstName.ShouldBe(App.SignupRequest.UserDetails.FirstName.TitleCase());
+        actual.Gender.ShouldBe(App.SignupRequest.Gender.TitleCase());
+        actual.LastName.ShouldBe(App.SignupRequest.UserDetails.LastName.TitleCase());
+        actual.MemberNumber.ShouldBe(res.MemberNumber);
+        actual.SignupDate.ShouldBe(DateOnly.FromDateTime(DateTime.UtcNow));
+        actual.MobileNumber.ShouldBe(App.SignupRequest.Contact.MobileNumber.Trim());
 
         var fakeSesClient = (SesClient)App.Services.GetRequiredService<IAmazonSimpleEmailServiceV2>();
-        (await fakeSesClient.EmailReceived(App.MemberId)).ShouldBeTrue();
+        (await fakeSesClient.EmailReceived(App.MemberId.ToString())).ShouldBeTrue();
     }
 
     [Fact, Priority(2)]
     public async Task Duplicate_Info_Validation()
     {
-        var (rsp, res) = await App.Client.POSTAsync<Endpoint, Request, ProblemDetails>(App.SignupRequest);
+        var (rsp, res) = await App.Client.POSTAsync<Endpoint, Request, ErrorResponse>(App.SignupRequest);
 
         rsp.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
 
-        var errKeys = res.Errors.Select(e => e.Name).ToList();
-        errKeys.ShouldBe(["email", "contact.MobileNumber"]);
+        var errKeys = res.Errors.Keys.ToList();
+        errKeys.ShouldBe(["Email", "Contact.MobileNumber"]);
     }
 }

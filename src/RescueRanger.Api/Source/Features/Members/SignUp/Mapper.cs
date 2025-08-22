@@ -1,5 +1,3 @@
-﻿using Dom;
-
 namespace Members.Signup;
 
 sealed class Mapper : RequestMapper<Request, Member>
@@ -13,12 +11,14 @@ sealed class Mapper : RequestMapper<Request, Member>
             BirthDay = DateOnly.Parse(r.BirthDay),
             Gender = r.Gender.TitleCase(),
             MobileNumber = r.Contact.MobileNumber.Trim(),
-            Address = new()
-            {
-                City = r.Address.City.TitleCase(),
-                State = r.Address.State.TitleCase(),
-                ZipCode = r.Address.ZipCode.Trim(),
-                Street = r.Address.Street.Trim()
-            }
+            // Flattened address properties
+            City = r.Address.City.TitleCase(),
+            State = r.Address.State.TitleCase(),
+            ZipCode = r.Address.ZipCode.Trim(),
+            Street = r.Address.Street.Trim(),
+            // Contact preferences
+            Whatsapp = r.Contact.Whatsapp,
+            Viber = r.Contact.Viber,
+            Telegram = r.Contact.Telegram
         };
 }
