@@ -1,20 +1,20 @@
 namespace Members.Signup;
 
-sealed class DuplicateInfoChecker : IPreProcessor<Request>
+sealed class DuplicateInfoChecker(ApplicationDbContext dbContext) : IPreProcessor<Request>
 {
-    private readonly ApplicationDbContext _dbContext;
-    
-    public DuplicateInfoChecker(ApplicationDbContext dbContext)
-    {
-        _dbContext = dbContext;
-    }
-    
     public async Task PreProcessAsync(IPreProcessorContext<Request> ctx, CancellationToken ct)
     {
-        var emailTask = _dbContext.Members
+        if (ctx.Request is null)
+        {
+            ctx.ValidationFailures.Add(new(nameof(Request), "Request is null!"));
+            await ctx.HttpContext.Response.SendErrorsAsync(ctx.ValidationFailures, cancellation: ct);
+            return;
+        }
+        
+        var emailTask = dbContext.Members
             .AnyAsync(m => m.Email == ctx.Request.Email.ToLower(), ct);
             
-        var mobileTask = _dbContext.Members
+        var mobileTask = dbContext.Members
             .AnyAsync(m => m.MobileNumber == ctx.Request.Contact.MobileNumber.Trim(), ct);
 
         await Task.WhenAll(emailTask, mobileTask);

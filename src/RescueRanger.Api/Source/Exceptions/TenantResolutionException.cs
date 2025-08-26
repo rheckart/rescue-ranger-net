@@ -37,9 +37,9 @@ public class TenantNotFoundException : TenantResolutionException
 public class TenantInactiveException : TenantResolutionException
 {
     public Guid TenantId { get; }
-    public TenantStatus Status { get; }
+    public string Status { get; }
     
-    public TenantInactiveException(Guid tenantId, string tenantIdentifier, TenantStatus status) 
+    public TenantInactiveException(Guid tenantId, string tenantIdentifier, string status) 
         : base($"Tenant '{tenantIdentifier}' is {status}", tenantIdentifier)
     {
         TenantId = tenantId;

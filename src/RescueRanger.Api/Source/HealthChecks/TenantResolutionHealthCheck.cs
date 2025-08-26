@@ -4,6 +4,7 @@ using RescueRanger.Api.Data.Repositories;
 using RescueRanger.Api.Entities;
 using RescueRanger.Api.Services;
 using System.Diagnostics;
+using Microsoft.Extensions.Caching.Distributed;
 
 namespace RescueRanger.Api.HealthChecks;
 
@@ -83,7 +84,7 @@ public class TenantResolutionHealthCheck : IHealthCheck
             
             // Test 3: Check tenant context service
             var contextServiceHealthy = _tenantContextService.CurrentTenant == null || 
-                                       _tenantContextService.IsValidTenant;
+                                       _tenantContextService.IsValid;
             data["context_service_healthy"] = contextServiceHealthy;
             
             if (!contextServiceHealthy)

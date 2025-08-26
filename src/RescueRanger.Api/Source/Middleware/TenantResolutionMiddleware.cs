@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Options;
 using RescueRanger.Api.Data.Repositories;
 using RescueRanger.Api.Services;
-using RescueRanger.Api.Exceptions;
 using System.Text.RegularExpressions;
 using System.Diagnostics;
 using Ardalis.Result;
@@ -41,12 +40,12 @@ public partial class TenantResolutionMiddleware(
         try
         {
             // Try to resolve tenant from multiple sources
-            var resolutionResult = await ResolveTenantIdentifierAsync(context);
+            var (resolutionResult, method) = await ResolveTenantIdentifierAsync(context);
             
             if (resolutionResult.IsSuccess)
             {
                 var tenantIdentifier = resolutionResult.Value;
-                resolutionMethod = resolutionResult.Metadata?["Method"] as string ?? "Unknown";
+                resolutionMethod = method;
                 
                 logger.LogDebug("Tenant identifier resolved via {Method}: {TenantIdentifier}", 
                     resolutionMethod, tenantIdentifier);
@@ -181,7 +180,7 @@ public partial class TenantResolutionMiddleware(
     /// <summary>
     /// Resolves tenant identifier from various sources
     /// </summary>
-    private Task<Result<string>> ResolveTenantIdentifierAsync(HttpContext context)
+    private Task<(Result<string> result, string method)> ResolveTenantIdentifierAsync(HttpContext context)
     {
         var tenantIdentifier =
             // Priority 1: Try subdomain resolution
@@ -190,8 +189,7 @@ public partial class TenantResolutionMiddleware(
         {
             logger.LogDebug("Tenant resolved from subdomain: {TenantIdentifier}", tenantIdentifier);
             var result = Result.Success(tenantIdentifier);
-            result.Metadata = new Dictionary<string, object> { ["Method"] = "Subdomain" };
-            return Task.FromResult(result);
+            return Task.FromResult((result, "Subdomain"));
         }
         
         // Priority 2: Try header-based resolution (X-Tenant-Id or X-Tenant-Subdomain)
@@ -202,8 +200,7 @@ public partial class TenantResolutionMiddleware(
             {
                 logger.LogDebug("Tenant resolved from X-Tenant-Id header: {TenantIdentifier}", tenantIdentifier);
                 var result = Result.Success(tenantIdentifier);
-                result.Metadata = new Dictionary<string, object> { ["Method"] = "X-Tenant-Id Header" };
-                return Task.FromResult(result);
+                return Task.FromResult((result, "X-Tenant-Id Header"));
             }
         }
         
@@ -214,8 +211,7 @@ public partial class TenantResolutionMiddleware(
             {
                 logger.LogDebug("Tenant resolved from X-Tenant-Subdomain header: {TenantIdentifier}", tenantIdentifier);
                 var result = Result.Success(tenantIdentifier);
-                result.Metadata = new Dictionary<string, object> { ["Method"] = "X-Tenant-Subdomain Header" };
-                return Task.FromResult(result);
+                return Task.FromResult((result, "X-Tenant-Subdomain Header"));
             }
         }
         
@@ -227,23 +223,22 @@ public partial class TenantResolutionMiddleware(
             {
                 logger.LogDebug("Tenant resolved from query parameter: {TenantIdentifier}", tenantIdentifier);
                 var result = Result.Success(tenantIdentifier);
-                result.Metadata = new Dictionary<string, object> { ["Method"] = "Query Parameter" };
-                return Task.FromResult(result);
+                return Task.FromResult((result, "Query Parameter"));
             }
         }
         
         // Priority 4: Try route data (if using route-based tenancy)
         if (!context.Request.RouteValues.TryGetValue("tenant", out var tenantRoute))
-            return Task.FromResult<Result<string>>(Result.NotFound());
+            return Task.FromResult<(Result<string>, string)>((Result.NotFound(), "None"));
         
         tenantIdentifier = tenantRoute?.ToString();
             
-        if (string.IsNullOrWhiteSpace(tenantIdentifier)) return Task.FromResult<Result<string>>(Result.NotFound());
+        if (string.IsNullOrWhiteSpace(tenantIdentifier)) 
+            return Task.FromResult<(Result<string>, string)>((Result.NotFound(), "None"));
         
         logger.LogDebug("Tenant resolved from route: {TenantIdentifier}", tenantIdentifier);
         var routeResult = Result.Success(tenantIdentifier);
-        routeResult.Metadata = new Dictionary<string, object> { ["Method"] = "Route" };
-        return Task.FromResult(routeResult);
+        return Task.FromResult((routeResult, "Route"));
     }
     
     /// <summary>

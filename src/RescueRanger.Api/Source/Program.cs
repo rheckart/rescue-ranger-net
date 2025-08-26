@@ -88,8 +88,7 @@ healthChecksBuilder.AddRedis(
 
 // Add tenant resolution health check
 healthChecksBuilder.AddTypeActivatedCheck<TenantResolutionHealthCheck>(
-    "tenant-resolution",
-    tags: ["tenant", "middleware"]);
+    "tenant-resolution");
 
 // Add CORS for development and multi-tenant support
 bld.Services.AddCors(options =>
