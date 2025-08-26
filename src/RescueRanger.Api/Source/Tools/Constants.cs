@@ -17,5 +17,6 @@ static class TenantStatus
     public const string Active = nameof(Active);
     public const string Inactive = nameof(Inactive);
     public const string Suspended = nameof(Suspended);
+    public const string Archived = nameof(Archived);
     public const string PendingDeletion = nameof(PendingDeletion);
 }

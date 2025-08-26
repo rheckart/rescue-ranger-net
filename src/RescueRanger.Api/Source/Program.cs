@@ -1,10 +1,13 @@
 using Amazon;
 using Amazon.SimpleEmailV2;
 using LettuceEncrypt;
+using RescueRanger.Api.Authorization;
 using RescueRanger.Api.Data.Repositories;
 using RescueRanger.Api.HealthChecks;
+using RescueRanger.Api.Middleware;
 using RescueRanger.Api.Services;
 using RescueRanger.Api1.Middleware;
+using RescueRanger.Infrastructure.Data;
 using RescueRanger.Infrastructure.Services;
 using Serilog;
 using Serilog.Events;
@@ -30,7 +33,7 @@ if (args.Contains("@@")) // this is a 'dotnet test' run
 var bld = WebApplication.CreateBuilder(args);
 bld.Services
    .AddAuthenticationJwtBearer(o => o.SigningKey = bld.Configuration["Auth:SigningKey"])
-   .AddAuthorization()
+   .AddTenantAuthorization() // Add tenant-aware authorization
    .AddFastEndpoints(o => o.SourceGeneratorDiscoveredTypes = DiscoveredTypes.All)
    .AddJobQueues<JobRecord, JobStorageProvider>()
    .AddSingleton<IAmazonSimpleEmailServiceV2>(
@@ -38,6 +41,9 @@ bld.Services
            bld.Configuration["Email:ApiKey"],
            bld.Configuration["Email:ApiSecret"],
            RegionEndpoint.USEast1));
+
+// Add HttpContextAccessor for accessing HTTP context in services
+bld.Services.AddHttpContextAccessor();
 
 // Add Serilog
 bld.Host.UseSerilog();
@@ -80,15 +86,26 @@ if (!string.IsNullOrEmpty(connectionString))
         tags: ["db", "postgresql"]);
 }
 
-// Add Redis health check
-healthChecksBuilder.AddRedis(
-    redisConnectionString ?? throw new InvalidOperationException("Empty Redis connection string"),
-    name: "redis",
-    tags: ["cache", "redis"]);
+// Add Redis health check only if connection string is available
+if (!string.IsNullOrEmpty(redisConnectionString))
+{
+    healthChecksBuilder.AddRedis(
+        redisConnectionString,
+        name: "redis",
+        tags: ["cache", "redis"]);
+}
 
 // Add tenant resolution health check
 healthChecksBuilder.AddTypeActivatedCheck<TenantResolutionHealthCheck>(
     "tenant-resolution");
+
+// Add additional tenant-specific health checks
+healthChecksBuilder.AddTypeActivatedCheck<TenantSpecificHealthCheck>(
+    "tenant-specific");
+healthChecksBuilder.AddTypeActivatedCheck<TenantConfigurationHealthCheck>(
+    "tenant-configuration");
+healthChecksBuilder.AddTypeActivatedCheck<TenantResolutionPerformanceHealthCheck>(
+    "tenant-resolution-performance");
 
 // Add CORS for development and multi-tenant support
 bld.Services.AddCors(options =>
@@ -135,12 +152,40 @@ if (bld.Environment.IsProduction())
 }
 else
 {
-    bld.Services.SwaggerDocument(d => d.DocumentSettings =
-                                          s =>
-                                          {
-                                              s.DocumentName = "v0";
-                                              s.Version = "0.0.0";
-                                          });
+    bld.Services.SwaggerDocument(d => 
+    {
+        d.DocumentSettings = s =>
+        {
+            s.DocumentName = "v1";
+            s.Version = "1.0.0";
+            s.Title = "RescueRanger Multi-Tenant API";
+            s.Description = @"
+# RescueRanger Multi-Tenant API
+
+This API supports multi-tenancy through subdomain-based tenant resolution.
+
+## Authentication & Tenant Context
+
+All API requests must include proper authentication and tenant context:
+
+1. **Tenant Resolution**: The tenant is automatically resolved from the subdomain
+   - Format: `https://{tenant}.rescueranger.com/api/endpoint`
+   - Example: `https://happytails.rescueranger.com/api/horses`
+
+2. **Authentication**: Include JWT token in Authorization header
+   - Format: `Authorization: Bearer {jwt_token}`
+
+3. **Cross-Tenant Access**: Prevented automatically - users can only access data from their tenant
+
+## Security Features
+
+- **Automatic Tenant Filtering**: All queries are automatically filtered by tenant
+- **Cross-Tenant Protection**: Prevents accidental or malicious cross-tenant access
+- **Audit Logging**: All tenant access is logged for security monitoring
+- **Role-Based Authorization**: Different access levels within tenants
+";
+        };
+    });
 }
 
 // Configure Multi-Tenant Options
@@ -154,6 +199,21 @@ bld.Services.AddScoped<ITenantContextService, TenantContextService>();
 bld.Services.AddScoped<ITenantRepository, TenantRepository>();
 bld.Services.AddScoped<ITenantResolver, SubdomainTenantResolver>();
 bld.Services.AddScoped<ISubdomainTenantResolver, SubdomainTenantResolver>();
+bld.Services.AddScoped<ITenantService, TenantService>();
+
+// Register authentication and user services
+bld.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+bld.Services.AddScoped<ITenantAuthenticationService, TenantAuthenticationService>();
+bld.Services.AddScoped<ITenantUserIdentityService, TenantUserIdentityService>();
+bld.Services.AddScoped<ITenantUserValidationService, TenantUserValidationService>();
+
+// Register audit and security services
+bld.Services.AddScoped<ITenantAuditService, TenantAuditService>();
+
+// Register tenant-aware repositories
+bld.Services.AddScoped(typeof(ITenantAwareRepository<>), typeof(TenantAwareRepository<>));
+bld.Services.AddScoped<HorseRepository>();
+bld.Services.AddScoped<MemberRepository>();
 
 var app = bld.Build();
 
@@ -197,6 +257,12 @@ app.UseSerilogRequestLogging(options =>
     
 // Add Tenant Resolution Middleware (before authentication/authorization)
 app.UseTenantResolution();
+
+// Add Tenant Context Validation Middleware
+app.UseTenantContextValidation();
+
+// Add Tenant Token Validation Middleware (after authentication, before authorization)
+app.UseTenantTokenValidation();
 
 app.UseJobQueues(o =>
 {

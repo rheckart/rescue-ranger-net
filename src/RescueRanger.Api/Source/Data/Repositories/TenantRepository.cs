@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
-using RescueRanger.Infrastructure.Data;
+using RescueRanger.Api.Data;
 using System.Text.Json;
 using Ardalis.Result;
 using RescueRanger.Api.Entities;
@@ -331,5 +331,11 @@ public class TenantRepository(
         return await context.Tenants
             .Where(t => t.Status == TenantStatus.Active)
             .CountAsync();
+    }
+    
+    /// <inheritdoc />
+    public async Task<IEnumerable<Tenant>> GetAllTenantsAsync()
+    {
+        return await context.AllTenants<Tenant>().ToListAsync();
     }
 }

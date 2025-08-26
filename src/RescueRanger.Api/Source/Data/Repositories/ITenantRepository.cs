@@ -98,4 +98,10 @@ public interface ITenantRepository
     /// </summary>
     /// <returns>Number of active tenants</returns>
     Task<int> GetActiveTenantsCountAsync();
+    
+    /// <summary>
+    /// Gets all tenant entities
+    /// </summary>
+    /// <returns>All tenant entities</returns>
+    Task<IEnumerable<Tenant>> GetAllTenantsAsync();
 }

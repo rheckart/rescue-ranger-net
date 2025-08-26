@@ -1,7 +1,13 @@
+using RescueRanger.Api.Authorization;
 using RescueRanger.Api.Notifications;
+using RescueRanger.Infrastructure.Data;
 
 namespace Members.Signup;
 
+/// <summary>
+/// Endpoint for member signup - demonstrates tenant validation for anonymous endpoints
+/// </summary>
+[TenantValidation(RequireTenant = true, ValidateResourceAccess = false)]
 sealed class Endpoint : Endpoint<Request, Response, Mapper>
 {
     private readonly ApplicationDbContext _dbContext;
