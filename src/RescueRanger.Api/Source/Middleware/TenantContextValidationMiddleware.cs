@@ -44,8 +44,8 @@ public class TenantContextValidationMiddleware
                 // Add tenant information to response headers for debugging (only in non-production)
                 if (!context.RequestServices.GetRequiredService<IWebHostEnvironment>().IsProduction())
                 {
-                    context.Response.Headers.Add("X-Tenant-Id", tenantContext.TenantId.ToString());
-                    context.Response.Headers.Add("X-Tenant-Name", tenantContext.TenantName);
+                    context.Response.Headers["X-Tenant-Id"] = tenantContext.TenantId.ToString();
+                    context.Response.Headers["X-Tenant-Name"] = tenantContext.TenantName;
                 }
 
                 // Validate tenant access for authenticated users

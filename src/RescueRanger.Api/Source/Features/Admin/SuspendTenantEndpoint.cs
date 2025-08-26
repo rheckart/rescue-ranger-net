@@ -57,7 +57,7 @@ sealed class SuspendTenantEndpoint : Endpoint<SuspendTenantRequestWithId, Tenant
         {
             _logger.LogWarning("Invalid tenant ID provided: {TenantId}", req.TenantId);
             AddError("Invalid tenant ID format");
-            await SendAsync(Results.BadRequest(ValidationFailures));
+            await Send.ResultAsync(Results.BadRequest("Invalid tenant ID format"));
             return;
         }
 
@@ -69,21 +69,21 @@ sealed class SuspendTenantEndpoint : Endpoint<SuspendTenantRequestWithId, Tenant
             NotifyTenant = req.NotifyTenant
         };
 
-        var result = await _tenantService.SuspendTenantAsync(req.TenantId, suspendRequest, ct);
+        var result = await _tenantService.SuspendTenantAsync(req.TenantId, suspendRequest);
 
         if (result.IsSuccess)
         {
             _logger.LogInformation("Successfully suspended tenant {TenantId}: {TenantName}", 
                 result.Value.Id, result.Value.Name);
             
-            await Send.OkAsync(result.Value, ct);
+            await Send.OkAsync(result.Value);
         }
         else if (result.Status == Ardalis.Result.ResultStatus.NotFound)
         {
             _logger.LogWarning("Tenant not found for suspension: {TenantId}", req.TenantId);
             
             AddError($"Tenant with ID {req.TenantId} was not found");
-            await SendAsync(Results.NotFound(ValidationFailures));
+            await Send.ResultAsync(Results.NotFound($"Tenant with ID {req.TenantId} was not found"));
         }
         else if (result.Status == Ardalis.Result.ResultStatus.Invalid)
         {
@@ -94,7 +94,7 @@ sealed class SuspendTenantEndpoint : Endpoint<SuspendTenantRequestWithId, Tenant
             {
                 AddError(error.ErrorMessage);
             }
-            await SendAsync(Results.BadRequest(ValidationFailures));
+            await Send.ResultAsync(Results.BadRequest(string.Join(", ", result.ValidationErrors.Select(e => e.ErrorMessage))));
         }
         else if (result.Status == Ardalis.Result.ResultStatus.Forbidden)
         {
@@ -102,7 +102,7 @@ sealed class SuspendTenantEndpoint : Endpoint<SuspendTenantRequestWithId, Tenant
                 req.TenantId, result.Errors.FirstOrDefault());
             
             AddError(result.Errors.FirstOrDefault() ?? "This tenant cannot be suspended");
-            await SendAsync(Results.StatusCode(403));
+            await Send.ResultAsync(Results.Forbid());
         }
         else if (result.Status == Ardalis.Result.ResultStatus.Conflict)
         {
@@ -110,14 +110,14 @@ sealed class SuspendTenantEndpoint : Endpoint<SuspendTenantRequestWithId, Tenant
                 req.TenantId, result.Errors.FirstOrDefault());
             
             AddError(result.Errors.FirstOrDefault() ?? "Tenant is already suspended");
-            await SendAsync(Results.Conflict(ValidationFailures));
+            await Send.ResultAsync(Results.Conflict(result.Errors.FirstOrDefault() ?? "Tenant is already suspended"));
         }
         else
         {
             _logger.LogError("Error suspending tenant {TenantId}: {Error}", req.TenantId, result.Errors.FirstOrDefault());
             
             AddError("An error occurred while suspending the tenant");
-            await SendAsync(Results.Problem("An error occurred while suspending the tenant"));
+            await Send.ResultAsync(Results.Problem("An error occurred while suspending the tenant"));
         }
     }
 }
@@ -163,25 +163,25 @@ sealed class ReactivateTenantEndpoint : EndpointWithoutRequest<TenantResponse>
         {
             _logger.LogWarning("Invalid tenant ID provided: {TenantId}", tenantId);
             AddError("Invalid tenant ID format");
-            await SendAsync(Results.BadRequest(ValidationFailures));
+            await Send.ResultAsync(Results.BadRequest("Invalid tenant ID format"));
             return;
         }
 
-        var result = await _tenantService.ReactivateTenantAsync(tenantId, ct);
+        var result = await _tenantService.ReactivateTenantAsync(tenantId);
 
         if (result.IsSuccess)
         {
             _logger.LogInformation("Successfully reactivated tenant {TenantId}: {TenantName}", 
                 result.Value.Id, result.Value.Name);
             
-            await Send.OkAsync(result.Value, ct);
+            await Send.OkAsync(result.Value);
         }
         else if (result.Status == Ardalis.Result.ResultStatus.NotFound)
         {
             _logger.LogWarning("Tenant not found for reactivation: {TenantId}", tenantId);
             
             AddError($"Tenant with ID {tenantId} was not found");
-            await SendAsync(Results.NotFound(ValidationFailures));
+            await Send.ResultAsync(Results.NotFound($"Tenant with ID {tenantId} was not found"));
         }
         else if (result.Status == Ardalis.Result.ResultStatus.Conflict)
         {
@@ -189,14 +189,14 @@ sealed class ReactivateTenantEndpoint : EndpointWithoutRequest<TenantResponse>
                 tenantId, result.Errors.FirstOrDefault());
             
             AddError(result.Errors.FirstOrDefault() ?? "This tenant cannot be reactivated");
-            await SendAsync(Results.Conflict(ValidationFailures));
+            await Send.ResultAsync(Results.Conflict(result.Errors.FirstOrDefault() ?? "This tenant cannot be reactivated"));
         }
         else
         {
             _logger.LogError("Error reactivating tenant {TenantId}: {Error}", tenantId, result.Errors.FirstOrDefault());
             
             AddError("An error occurred while reactivating the tenant");
-            await SendAsync(Results.Problem("An error occurred while reactivating the tenant"));
+            await Send.ResultAsync(Results.Problem("An error occurred while reactivating the tenant"));
         }
     }
 }

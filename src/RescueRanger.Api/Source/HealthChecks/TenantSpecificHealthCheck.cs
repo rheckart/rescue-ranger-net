@@ -155,7 +155,7 @@ public class TenantConfigurationHealthCheck : IHealthCheck
         {
             // Test 1: Check for misconfigured tenants
             var stopwatch = Stopwatch.StartNew();
-            var allTenants = await _tenantRepository.GetAllTenantsAsync();
+            var allTenants = (await _tenantRepository.GetAllTenantsAsync()).ToList();
             stopwatch.Stop();
 
             data["total_tenants"] = allTenants.Count;

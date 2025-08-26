@@ -95,13 +95,15 @@ public class UpdateUserRoleEndpoint : Endpoint<UpdateUserRoleRequest, UpdateUser
     {
         Put("/users/{userId}/role");
         Policies(TenantAuthorizationPolicies.RoleAssignment);
-        Summary(s => s
-            .Summary("Update a user's role")
-            .Description("Updates the role of a user within the current tenant")
-            .Response(200, "Role updated successfully")
-            .Response(400, "Invalid request data")
-            .Response(403, "Insufficient permissions")
-            .Response(404, "User not found"));
+        Summary(s =>
+        {
+            s.Summary = "Update a user's role";
+            s.Description = "Updates the role of a user within the current tenant";
+            s.Response(200, "Role updated successfully");
+            s.Response(400, "Invalid request data");
+            s.Response(403, "Insufficient permissions");
+            s.Response(404, "User not found");
+        });
     }
     
     public override async Task HandleAsync(UpdateUserRoleRequest req, CancellationToken ct)
@@ -110,7 +112,7 @@ public class UpdateUserRoleEndpoint : Endpoint<UpdateUserRoleRequest, UpdateUser
         {
             if (!_tenantContext.IsValid)
             {
-                await Send.ForbidAsync(ct);
+                await Send.ForbiddenAsync(ct);
                 return;
             }
             
@@ -127,7 +129,7 @@ public class UpdateUserRoleEndpoint : Endpoint<UpdateUserRoleRequest, UpdateUser
                 
             if (!validationResult.IsSuccess)
             {
-                await SendAsync(Results.BadRequest(validationResult.Errors));
+                await Send.StringAsync(string.Join(", ", validationResult.Errors), 400, cancellation: ct);
                 return;
             }
             
@@ -170,7 +172,7 @@ public class UpdateUserRoleEndpoint : Endpoint<UpdateUserRoleRequest, UpdateUser
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating role for user {UserId}", req.UserId);
-            await SendAsync(Results.Problem("An error occurred while updating the user's role"));
+            await Send.StringAsync("An error occurred while updating the user's role", 500, cancellation: ct);
         }
     }
 }

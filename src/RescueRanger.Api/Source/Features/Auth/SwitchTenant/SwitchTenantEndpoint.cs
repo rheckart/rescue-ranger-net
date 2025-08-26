@@ -129,12 +129,14 @@ public class SwitchTenantEndpoint : Endpoint<SwitchTenantRequest, SwitchTenantRe
     {
         Post("/auth/switch-tenant");
         Policies(TenantAuthorizationPolicies.CrossTenantAccess);
-        Summary(s => s
-            .Summary("Switch to a different tenant context")
-            .Description("Allows system administrators to switch their session to a different tenant")
-            .Response(200, "Tenant switched successfully")
-            .Response(403, "Insufficient permissions")
-            .Response(404, "Target tenant not found"));
+        Summary(s =>
+        {
+            s.Summary = "Switch to a different tenant context";
+            s.Description = "Allows system administrators to switch their session to a different tenant";
+            s.Response(200, "Tenant switched successfully");
+            s.Response(403, "Insufficient permissions");
+            s.Response(404, "Target tenant not found");
+        });
     }
     
     public override async Task HandleAsync(SwitchTenantRequest req, CancellationToken ct)
@@ -144,14 +146,14 @@ public class SwitchTenantEndpoint : Endpoint<SwitchTenantRequest, SwitchTenantRe
             var currentUserId = _userIdentity.GetCurrentUserId();
             if (!currentUserId.HasValue)
             {
-                await SendUnauthorizedAsync(ct);
+                await Send.UnauthorizedAsync(ct);
                 return;
             }
             
             // Verify user is system admin
             if (!_userIdentity.IsSystemAdmin())
             {
-                await Send.ForbidAsync(ct);
+                await Send.ForbiddenAsync(ct);
                 return;
             }
             
@@ -159,7 +161,7 @@ public class SwitchTenantEndpoint : Endpoint<SwitchTenantRequest, SwitchTenantRe
             var originalTenant = _tenantContext.CurrentTenant;
             if (originalTenant is null)
             {
-                await SendAsync(Results.BadRequest("Current tenant context not established"));
+                await Send.StringAsync("Current tenant context not established", 400, cancellation: ct);
                 return;
             }
             
@@ -167,7 +169,7 @@ public class SwitchTenantEndpoint : Endpoint<SwitchTenantRequest, SwitchTenantRe
             var switchResult = await _authService.SwitchTenantAsync(currentUserId.Value, req.TargetTenantId);
             if (!switchResult.IsSuccess)
             {
-                await SendAsync(Results.BadRequest(switchResult.Errors));
+                await Send.StringAsync(string.Join(", ", switchResult.Errors), 400, cancellation: ct);
                 return;
             }
             
@@ -178,7 +180,7 @@ public class SwitchTenantEndpoint : Endpoint<SwitchTenantRequest, SwitchTenantRe
             if (targetTenant is null)
             {
                 AddError("Target tenant not found");
-                await SendAsync(HttpStatusCode.NotFound, ct);
+                await Send.NotFoundAsync(ct);
                 return;
             }
             
@@ -216,7 +218,7 @@ public class SwitchTenantEndpoint : Endpoint<SwitchTenantRequest, SwitchTenantRe
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error switching to tenant {TargetTenantId}", req.TargetTenantId);
-            await SendAsync(Results.Problem("An error occurred while switching tenants"));
+            await Send.StringAsync("An error occurred while switching tenants", 500, cancellation: ct);
         }
     }
 }

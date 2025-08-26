@@ -42,14 +42,14 @@ sealed class GetTenantsEndpoint : Endpoint<GetTenantsRequest, TenantListResponse
         if (req.Page < 1)
         {
             AddError("Page number must be greater than 0");
-            await SendAsync(Results.BadRequest());
+            await Send.ResultAsync(Results.BadRequest("Page number must be greater than 0"));
             return;
         }
 
         if (req.PageSize < 1 || req.PageSize > 100)
         {
             AddError("Page size must be between 1 and 100");
-            await SendAsync(Results.BadRequest());
+            await Send.ResultAsync(Results.BadRequest("Page size must be between 1 and 100"));
             return;
         }
 
@@ -60,14 +60,14 @@ sealed class GetTenantsEndpoint : Endpoint<GetTenantsRequest, TenantListResponse
             _logger.LogInformation("Successfully retrieved {Count} tenants (Page {Page} of {TotalPages})", 
                 result.Value.Tenants.Count, result.Value.Pagination.CurrentPage, result.Value.Pagination.TotalPages);
             
-            Response = result.Value;
+            await Send.OkAsync(result.Value, ct);
         }
         else
         {
             _logger.LogError("Error retrieving tenants: {Error}", result.Errors.FirstOrDefault());
             
             AddError("An error occurred while retrieving tenants");
-            await SendAsync(Results.Problem("An error occurred while retrieving tenants"));
+            await Send.ResultAsync(Results.Problem("An error occurred while retrieving tenants"));
         }
     }
 }

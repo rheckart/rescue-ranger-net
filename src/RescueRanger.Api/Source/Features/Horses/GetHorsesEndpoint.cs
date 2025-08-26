@@ -41,7 +41,7 @@ public sealed class GetHorsesEndpoint : Endpoint<GetHorsesRequest, GetHorsesResp
         });
 
         // Require authentication and valid tenant membership
-        Policies(TenantAuthorizationPolicies.RequireValidTenant);
+        Policies(TenantAuthorizationPolicies.TenantUser);
     }
 
     public override async Task HandleAsync(GetHorsesRequest req, CancellationToken ct)
@@ -108,7 +108,7 @@ public sealed class GetHorsesEndpoint : Endpoint<GetHorsesRequest, GetHorsesResp
                 }
             });
 
-            Response = response;
+            await Send.OkAsync(response, ct);
 
             _logger.LogInformation("Successfully retrieved {Count} horses for tenant {TenantId}",
                 pagedHorses.Count, _tenantContext.TenantId);
@@ -117,7 +117,7 @@ public sealed class GetHorsesEndpoint : Endpoint<GetHorsesRequest, GetHorsesResp
         {
             _logger.LogError(ex, "Error retrieving horses for tenant {TenantId}", _tenantContext.TenantId);
             
-            await SendErrorAsync(500, "An error occurred while retrieving horses", ct);
+            await Send.StringAsync("An error occurred while retrieving horses", 500, cancellation: ct);
         }
     }
 

@@ -7,7 +7,6 @@ using RescueRanger.Api.HealthChecks;
 using RescueRanger.Api.Middleware;
 using RescueRanger.Api.Services;
 using RescueRanger.Api1.Middleware;
-using RescueRanger.Infrastructure.Data;
 using RescueRanger.Infrastructure.Services;
 using Serilog;
 using Serilog.Events;
