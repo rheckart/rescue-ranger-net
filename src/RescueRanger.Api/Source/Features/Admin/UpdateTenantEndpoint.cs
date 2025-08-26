@@ -54,7 +54,7 @@ sealed class UpdateTenantEndpoint : Endpoint<UpdateTenantRequestWithId, TenantRe
         {
             _logger.LogWarning("Invalid tenant ID provided: {TenantId}", req.TenantId);
             AddError("Invalid tenant ID format");
-            await SendAsync(Results.BadRequest(ValidationFailures), ct);
+            await Send.ResultAsync(Results.BadRequest("Invalid tenant ID format"));
             return;
         }
 
@@ -67,21 +67,21 @@ sealed class UpdateTenantEndpoint : Endpoint<UpdateTenantRequestWithId, TenantRe
             Configuration = req.Configuration
         };
 
-        var result = await _tenantService.UpdateTenantAsync(req.TenantId, updateRequest, ct);
+        var result = await _tenantService.UpdateTenantAsync(req.TenantId, updateRequest);
 
         if (result.IsSuccess)
         {
             _logger.LogInformation("Successfully updated tenant {TenantId}: {TenantName}", 
                 result.Value.Id, result.Value.Name);
             
-            await Send.OkAsync(result.Value, ct);
+            await Send.OkAsync(result.Value);
         }
         else if (result.Status == Ardalis.Result.ResultStatus.NotFound)
         {
             _logger.LogWarning("Tenant not found for update: {TenantId}", req.TenantId);
             
             AddError($"Tenant with ID {req.TenantId} was not found");
-            await SendAsync(Results.NotFound(ValidationFailures), ct);
+            await Send.ResultAsync(Results.NotFound($"Tenant with ID {req.TenantId} was not found"));
         }
         else if (result.Status == Ardalis.Result.ResultStatus.Invalid)
         {
@@ -92,14 +92,14 @@ sealed class UpdateTenantEndpoint : Endpoint<UpdateTenantRequestWithId, TenantRe
             {
                 AddError(error.ErrorMessage);
             }
-            await SendAsync(Results.BadRequest(ValidationFailures), ct);
+            await Send.ResultAsync(Results.BadRequest(string.Join(", ", result.ValidationErrors.Select(e => e.ErrorMessage))));
         }
         else
         {
             _logger.LogError("Error updating tenant {TenantId}: {Error}", req.TenantId, result.Errors.FirstOrDefault());
             
             AddError("An error occurred while updating the tenant");
-            await SendAsync(Results.Problem("An error occurred while updating the tenant"), ct);
+            await Send.ResultAsync(Results.Problem("An error occurred while updating the tenant"));
         }
     }
 }

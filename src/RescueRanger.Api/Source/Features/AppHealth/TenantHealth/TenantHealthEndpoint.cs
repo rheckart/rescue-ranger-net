@@ -38,7 +38,7 @@ public sealed class TenantHealthEndpoint : Endpoint<TenantHealthRequest, TenantH
         });
         
         // Require valid tenant context but allow any authenticated user
-        Policies(TenantAuthorizationPolicies.RequireValidTenant);
+        Policies(TenantAuthorizationPolicies.TenantUser);
     }
 
     public override async Task HandleAsync(TenantHealthRequest req, CancellationToken ct)
@@ -98,20 +98,14 @@ public sealed class TenantHealthEndpoint : Endpoint<TenantHealthRequest, TenantH
                 }
             });
 
-            Response = tenantHealthResponse;
-
-            // Set appropriate HTTP status code
-            if (healthCheckResult.Status == HealthStatus.Healthy)
+            // Send appropriate HTTP response
+            if (healthCheckResult.Status == HealthStatus.Healthy || healthCheckResult.Status == HealthStatus.Degraded)
             {
-                HttpContext.Response.StatusCode = 200;
-            }
-            else if (healthCheckResult.Status == HealthStatus.Degraded)
-            {
-                HttpContext.Response.StatusCode = 200; // Degraded is still OK
+                await Send.OkAsync(tenantHealthResponse, ct);
             }
             else
             {
-                HttpContext.Response.StatusCode = 503; // Unhealthy
+                await Send.ResponseAsync(tenantHealthResponse, 503, ct);
             }
 
             _logger.LogInformation("Tenant health check completed for {TenantId} with status {Status}",
@@ -122,7 +116,7 @@ public sealed class TenantHealthEndpoint : Endpoint<TenantHealthRequest, TenantH
             _logger.LogError(ex, "Error performing tenant health check for tenant {TenantId}",
                 _tenantContext.TenantId);
 
-            Response = new TenantHealthResponse
+            var errorResponse = new TenantHealthResponse
             {
                 Status = "Unhealthy",
                 TenantId = _tenantContext.TenantId,
@@ -142,7 +136,7 @@ public sealed class TenantHealthEndpoint : Endpoint<TenantHealthRequest, TenantH
                 }
             };
 
-            HttpContext.Response.StatusCode = 503;
+            await Send.ResponseAsync(errorResponse, 503, ct);
         }
     }
 }

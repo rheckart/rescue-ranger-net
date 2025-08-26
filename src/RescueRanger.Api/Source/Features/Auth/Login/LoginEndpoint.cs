@@ -157,7 +157,7 @@ public class LoginEndpoint : Endpoint<LoginRequest, LoginResponse>
             if (!_tenantContext.IsValid)
             {
                 AddError("Tenant context not established");
-                await SendAsync(HttpStatusCode.BadRequest, ct);
+                await Send.ErrorsAsync();
                 return;
             }
             
@@ -168,15 +168,20 @@ public class LoginEndpoint : Endpoint<LoginRequest, LoginResponse>
                 _logger.LogWarning("Authentication failed for {Email} in tenant {TenantId}: {Errors}",
                     req.Email, _tenantContext.TenantId, string.Join(", ", result.Errors));
                     
-                var statusCode = result.Status switch
-                {
-                    Ardalis.Result.ResultStatus.NotFound => HttpStatusCode.Unauthorized,
-                    Ardalis.Result.ResultStatus.Forbidden => HttpStatusCode.Forbidden,
-                    _ => HttpStatusCode.Unauthorized
-                };
-                
                 AddError("Authentication failed");
-                await SendAsync(statusCode, ct);
+                
+                switch (result.Status)
+                {
+                    case Ardalis.Result.ResultStatus.NotFound:
+                        await Send.UnauthorizedAsync(ct);
+                        break;
+                    case Ardalis.Result.ResultStatus.Forbidden:
+                        await Send.ForbiddenAsync(ct);
+                        break;
+                    default:
+                        await Send.UnauthorizedAsync(ct);
+                        break;
+                }
                 return;
             }
             
@@ -208,14 +213,12 @@ public class LoginEndpoint : Endpoint<LoginRequest, LoginResponse>
             _logger.LogInformation("User {Email} authenticated successfully in tenant {TenantName}",
                 authResult.User.Email, authResult.Tenant.Name);
             
-            Response = response;
-            await Send.OkAsync(ct);
+            await Send.OkAsync(response, ct);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during authentication for {Email}", req.Email);
-            AddError("Authentication failed");
-            await SendAsync(HttpStatusCode.InternalServerError, ct);
+            await Send.StringAsync("Authentication failed", 500, cancellation: ct);
         }
     }
     

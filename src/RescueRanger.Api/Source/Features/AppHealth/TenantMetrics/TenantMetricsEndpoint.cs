@@ -74,7 +74,7 @@ public sealed class TenantMetricsEndpoint : Endpoint<TenantMetricsRequest, Tenan
         {
             _logger.LogError(ex, "Error retrieving tenant metrics for tenant {TenantId}", _tenantContext.TenantId);
             
-            await SendErrorAsync(500, "Error retrieving tenant metrics", ct);
+            await Send.ErrorsAsync(500, ct);
         }
     }
 

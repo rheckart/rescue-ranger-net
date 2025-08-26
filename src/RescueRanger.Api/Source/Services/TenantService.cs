@@ -39,7 +39,7 @@ public class TenantService : ITenantService
         var subdomainValidation = await ValidateSubdomainAsync(request.Subdomain, null, cancellationToken);
         if (!subdomainValidation.IsSuccess)
         {
-            return Result.Error(subdomainValidation.Errors);
+            return Result<TenantResponse>.Error(string.Join("; ", subdomainValidation.Errors));
         }
 
         try
@@ -76,7 +76,7 @@ public class TenantService : ITenantService
             if (!createResult.IsSuccess)
             {
                 _logger.LogError("Failed to create tenant: {Error}", createResult.Errors.First());
-                return Result.Error(createResult.Errors);
+                return Result<TenantResponse>.Error(string.Join("; ", createResult.Errors));
             }
 
             // Start provisioning workflow
@@ -515,7 +515,7 @@ public class TenantService : ITenantService
             var deleteResult = await _tenantRepository.DeleteAsync(tenantId);
             if (!deleteResult.IsSuccess)
             {
-                return Result.Error(deleteResult.Errors);
+                return Result.Error(string.Join("; ", deleteResult.Errors));
             }
 
             _logger.LogInformation("Successfully marked tenant {TenantId} for deletion. Reason: {Reason}", tenantId, reason);

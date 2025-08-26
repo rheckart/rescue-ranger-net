@@ -7,7 +7,7 @@
 
 ### Features
 
-- [ ] Multi-tenant architecture with subdomain routing - `L`
+- [x] Multi-tenant architecture with subdomain routing - `L`
 - [ ] Self-Serve onboarding UI/backend work for new rescues to register to use the application - `M`
 - [ ] User authentication with Facebook and Google oAuth - `M`
 - [ ] User authentication with email magic links - `M`

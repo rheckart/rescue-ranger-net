@@ -131,11 +131,13 @@ public class GetUsersEndpoint : Endpoint<GetUsersRequest, GetUsersResponse>
     {
         Get("/users");
         Policies(TenantAuthorizationPolicies.TenantUser);
-        Summary(s => s
-            .Summary("Get users in the current tenant")
-            .Description("Returns a paginated list of users in the current tenant")
-            .Response(200, "Users retrieved successfully")
-            .Response(403, "Insufficient permissions"));
+        Summary(s =>
+        {
+            s.Summary = "Get users in the current tenant";
+            s.Description = "Returns a paginated list of users in the current tenant";
+            s.Response(200, "Users retrieved successfully");
+            s.Response(403, "Insufficient permissions");
+        });
     }
     
     public override async Task HandleAsync(GetUsersRequest req, CancellationToken ct)
@@ -144,7 +146,7 @@ public class GetUsersEndpoint : Endpoint<GetUsersRequest, GetUsersResponse>
         {
             if (!_tenantContext.IsValid)
             {
-                await Send.ForbidAsync(ct);
+                await Send.ForbiddenAsync(ct);
                 return;
             }
             
@@ -205,7 +207,7 @@ public class GetUsersEndpoint : Endpoint<GetUsersRequest, GetUsersResponse>
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting users for tenant {TenantId}", _tenantContext.TenantId);
-            await SendAsync(Results.Problem("An error occurred while retrieving users"));
+            await Send.StringAsync("An error occurred while retrieving users", 500, cancellation: ct);
         }
     }
 }

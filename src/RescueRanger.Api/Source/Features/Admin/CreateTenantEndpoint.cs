@@ -54,7 +54,7 @@ sealed class CreateTenantEndpoint : Endpoint<CreateTenantRequest, TenantResponse
                 req.Subdomain, string.Join(", ", result.Errors));
             
             AddError("Failed to create tenant: " + string.Join(", ", result.Errors));
-            await SendAsync(Results.Problem("Failed to create tenant"));
+            await Send.ResultAsync(Results.Problem("Failed to create tenant"));
         }
     }
 }

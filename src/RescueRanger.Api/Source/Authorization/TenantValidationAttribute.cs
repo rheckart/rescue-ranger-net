@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using RescueRanger.Api.Services;
+using ProblemDetails = FastEndpoints.ProblemDetails;
 
 namespace RescueRanger.Api.Authorization;
 
@@ -121,7 +122,6 @@ public class TenantValidationAttribute : Attribute, IAsyncActionFilter
             
             context.Result = new ObjectResult(new ProblemDetails
             {
-                Title = "Internal Server Error",
                 Detail = "An error occurred during tenant validation",
                 Status = 500,
                 Instance = context.HttpContext.Request.Path
@@ -222,7 +222,6 @@ public class CrossTenantOperationAttribute : Attribute, IAsyncActionFilter
             
             context.Result = new ObjectResult(new ProblemDetails
             {
-                Title = "Internal Server Error",
                 Detail = "An error occurred during cross-tenant operation validation",
                 Status = 500,
                 Instance = context.HttpContext.Request.Path

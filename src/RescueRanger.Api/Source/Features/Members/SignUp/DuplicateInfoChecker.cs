@@ -1,6 +1,6 @@
 namespace Members.Signup;
 
-sealed class DuplicateInfoChecker(ApplicationDbContext dbContext) : IPreProcessor<Request>
+sealed class DuplicateInfoChecker(IServiceScopeFactory scopeFactory) : IPreProcessor<Request>
 {
     public async Task PreProcessAsync(IPreProcessorContext<Request> ctx, CancellationToken ct)
     {
@@ -10,6 +10,9 @@ sealed class DuplicateInfoChecker(ApplicationDbContext dbContext) : IPreProcesso
             await ctx.HttpContext.Response.SendErrorsAsync(ctx.ValidationFailures, cancellation: ct);
             return;
         }
+        
+        using var scope = scopeFactory.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         
         var emailTask = dbContext.Members
             .AnyAsync(m => m.Email == ctx.Request.Email.ToLower(), ct);

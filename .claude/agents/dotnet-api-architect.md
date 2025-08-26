@@ -15,6 +15,7 @@ Your core responsibilities:
 
 Before making any changes, you must:
 1. Research the existing codebase structure in the RescueRanger.Api project
+2. Use ref to research best practices and patterns for the project 
 3. Analyze current patterns and conventions used in the project
 4. Ensure consistency with established architectural patterns
 

@@ -2,6 +2,7 @@ using BCrypt.Net;
 using Microsoft.EntityFrameworkCore;
 using RescueRanger.Api.Authorization;
 using RescueRanger.Api.Entities;
+using RescueRanger.Api.Features.UserManagement.GetUsers;
 using RescueRanger.Api.Services;
 using RescueRanger.Infrastructure.Data;
 
@@ -36,13 +37,15 @@ public class InviteUserEndpoint : Endpoint<InviteUserRequest, InviteUserResponse
     {
         Post("/users/invite");
         Policies(TenantAuthorizationPolicies.UserInvitation);
-        Summary(s => s
-            .Summary("Invite a new user to the current tenant")
-            .Description("Creates a new user account and optionally sends an invitation email")
-            .Response(201, "User invited successfully")
-            .Response(400, "Invalid request data")
-            .Response(403, "Insufficient permissions")
-            .Response(409, "User already exists"));
+        Summary(s =>
+        {
+            s.Summary = "Invite a new user to the current tenant";
+            s.Description = "Creates a new user account and optionally sends an invitation email";
+            s.Response(201, "User invited successfully");
+            s.Response(400, "Invalid request data");
+            s.Response(403, "Insufficient permissions");
+            s.Response(409, "User already exists");
+        });
     }
     
     public override async Task HandleAsync(InviteUserRequest req, CancellationToken ct)
@@ -51,14 +54,14 @@ public class InviteUserEndpoint : Endpoint<InviteUserRequest, InviteUserResponse
         {
             if (!_tenantContext.IsValid)
             {
-                await Send.ForbidAsync(ct);
+                await Send.ForbiddenAsync(ct);
                 return;
             }
             
             var currentUserId = _userIdentity.GetCurrentUserId();
             if (!currentUserId.HasValue)
             {
-                await SendUnauthorizedAsync(ct);
+                await Send.UnauthorizedAsync(ct);
                 return;
             }
             
@@ -68,7 +71,7 @@ public class InviteUserEndpoint : Endpoint<InviteUserRequest, InviteUserResponse
                 
             if (!validationResult.IsSuccess)
             {
-                await SendAsync(Results.BadRequest(validationResult.Errors));
+                await Send.StringAsync(string.Join(", ", validationResult.Errors), 400, cancellation: ct);
                 return;
             }
             
@@ -78,7 +81,7 @@ public class InviteUserEndpoint : Endpoint<InviteUserRequest, InviteUserResponse
                 
             if (!roleValidation.IsSuccess)
             {
-                await SendAsync(Results.BadRequest(roleValidation.Errors));
+                await Send.StringAsync(string.Join(", ", roleValidation.Errors), 400, cancellation: ct);
                 return;
             }
             
@@ -131,7 +134,7 @@ public class InviteUserEndpoint : Endpoint<InviteUserRequest, InviteUserResponse
                 FullName = user.FullName,
                 Role = user.Role,
                 InvitationEmailSent = emailSent,
-                TemporaryPassword = Environment.IsDevelopment() ? temporaryPassword : null,
+                TemporaryPassword = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development" ? temporaryPassword : null,
                 InvitedAt = user.CreatedAt,
                 InvitedBy = invitedBy
             };
@@ -139,17 +142,17 @@ public class InviteUserEndpoint : Endpoint<InviteUserRequest, InviteUserResponse
             _logger.LogInformation("User {Email} invited to tenant {TenantId} by {InvitedBy}",
                 user.Email, _tenantContext.TenantId, invitedBy);
             
-            await SendCreatedAtAsync("GetUser", new { id = user.Id }, response, cancellation: ct);
+            await Send.CreatedAtAsync<GetUsersEndpoint>(new { id = user.Id }, response, generateAbsoluteUrl: true);
         }
         catch (DbUpdateException ex)
         {
             _logger.LogError(ex, "Database error inviting user {Email}", req.Email);
-            await SendAsync(Results.Conflict("User with this email may already exist"));
+            await Send.StringAsync("User with this email may already exist", 409, cancellation: ct);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error inviting user {Email}", req.Email);
-            await SendAsync(Results.Problem("An error occurred while inviting the user"));
+            await Send.StringAsync("An error occurred while inviting the user", 500, cancellation: ct);
         }
     }
     

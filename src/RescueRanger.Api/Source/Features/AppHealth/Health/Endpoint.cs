@@ -33,7 +33,7 @@ public class BasicHealthEndpoint(HealthCheckService healthCheckService) : Endpoi
         }
         else
         {
-            await SendAsync(Results.StatusCode(503));
+            await Send.ResponseAsync(response, 503, ct);
         }
     }
 }
@@ -87,7 +87,7 @@ public class DetailedHealthEndpoint(HealthCheckService healthCheckService)
         }
         else
         {
-            await SendAsync(Results.StatusCode(503));
+            await Send.ResponseAsync(response, 503, ct);
         }
     }
 }
